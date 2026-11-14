@@ -15,7 +15,7 @@ const fx = new FX();
 let canvas, ctx, words, ev = {};
 let W = 0, H = 0, S = 1, dpr = 1, clock = 0, lastTs = 0;
 let opts = { speed: 1, accents: false, mode: 'words' };
-const stat = () => ({ keys: 0, ok: 0, words: 0, best: 0 });
+const stat = () => ({ keys: 0, ok: 0, words: 0, best: 0, act: 0 });
 const fresh = () => ({
   mode: opts.mode, running: false, paused: false, lives: MAX_LIVES, score: 0, combo: 0, bestCombo: 0,
   time: 0, minute: 1, minTime: 0, enemies: [], target: null, spawnT: 0.4, spawned: 0, grace: 0, cps: 1.6, lastKill: 0, clockOn: false, typeTime: 0,
@@ -198,7 +198,7 @@ function hit(e) {
 }
 
 function endMinute() {
-  const m = G.m, mins = MINUTE / 60;
+  const m = G.m, mins = Math.max(m.act, 10) / 60; // only time with a word to type counts, like a fixed word list
   const s = { mode: G.mode, minute: G.minute, wpm: Math.round((m.ok + m.words) / 5 / mins), accuracy: m.keys ? Math.round(m.ok / m.keys * 100) : 100, words: m.words, bestCombo: m.best };
   G.paused = true; G.minute++; G.minTime = 0; G.m = stat(); G.m.best = G.combo;
   ev.minuteDone(s); ev.hud?.(G);
@@ -206,7 +206,7 @@ function endMinute() {
 
 function gameOver() {
   G.running = false; sfx.over();
-  const mins = G.typeTime / 60;
+  const mins = G.t.act / 60;
   ev.over({ mode: G.mode, score: G.score, wpm: mins > 0.08 ? Math.round((G.t.ok + G.t.words) / 5 / mins) : 0, words: G.t.words, bestCombo: G.bestCombo, minutes: G.minute - 1 });
 }
 
@@ -222,7 +222,7 @@ function update(dt) {
   if (!G.target && G.enemies.length) G.target = G.enemies.reduce((a, b) => (b.y > a.y ? b : a)); // autolock the closest (lowest) monster; the others can't be typed until it is gone
   if (G.grace > 0) { G.grace -= dt; return; }
   G.time += dt;
-  if (G.clockOn) { G.minTime += dt; G.typeTime += dt; }
+  if (G.clockOn) { G.minTime += dt; G.typeTime += dt; if (G.target) { G.m.act += dt; G.t.act += dt; } } // act = time with a word to type
   const v = (lineY() + 40 * S) * 0.048 * Math.pow(1.1, G.minute - 1) * opts.speed; // ~21s top to bottom at start
   for (const e of G.enemies) { e.age += dt; e.y += v * dt; e.x = e.baseX + Math.sin(e.age * 1.6 + e.phase) * e.amp; }
   for (const e of [...G.enemies]) if (G.running && e.y >= lineY()) hit(e);
