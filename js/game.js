@@ -15,7 +15,7 @@ const fx = new FX();
 let canvas, ctx, words, ev = {};
 let W = 0, H = 0, S = 1, dpr = 1, clock = 0, lastTs = 0;
 let opts = { speed: 1, accents: false, mode: 'words' };
-const stat = () => ({ keys: 0, ok: 0, words: 0, best: 0, act: 0 });
+const stat = () => ({ keys: 0, ok: 0, words: 0, best: 0, act: 0, cw: 0 });
 const fresh = () => ({
   mode: opts.mode, running: false, paused: false, lives: MAX_LIVES, score: 0, combo: 0, bestCombo: 0,
   time: 0, minute: 1, minTime: 0, enemies: [], target: null, spawnT: 0.4, spawned: 0, grace: 0, cps: 1.6, lastKill: 0, clockOn: false, typeTime: 0,
@@ -175,7 +175,7 @@ function kill(e) {
   fx.ring(e.x, e.y, e.color, 110 * S + len * 6);
   fx.shake = Math.max(fx.shake, 5 + len);
   G.combo++; G.bestCombo = Math.max(G.bestCombo, G.combo); G.m.best = Math.max(G.m.best, G.combo);
-  G.m.words++; G.t.words++;
+  G.m.words++; G.t.words++; if (!e.ans) { G.m.cw += len + 1; G.t.cw += len + 1; } // 10fastfingers: only finished words count, letters plus their space
   const pts = Math.round(len * 10 * (1 + Math.min(G.combo, 20) * 0.1));
   G.score += pts;
   fx.text(e.x, e.y - 30 * S, '+' + pts, '#ffe066', 28 * S);
@@ -204,7 +204,7 @@ function hit(e) {
 
 function endMinute() {
   const m = G.m, mins = Math.max(m.act, 10) / 60; // only time with a word to type counts, like a fixed word list
-  const s = { mode: G.mode, minute: G.minute, wpm: Math.round((m.ok + m.words) / 5 / mins), accuracy: m.keys ? Math.round(m.ok / m.keys * 100) : 100, words: m.words, bestCombo: m.best };
+  const s = { mode: G.mode, minute: G.minute, wpm: Math.round(m.cw / 5 / mins), accuracy: m.keys ? Math.round(m.ok / m.keys * 100) : 100, words: m.words, bestCombo: m.best };
   G.paused = true; G.minute++; G.minTime = 0; G.m = stat(); G.m.best = G.combo;
   ev.minuteDone(s); ev.hud?.(G);
 }
@@ -212,7 +212,7 @@ function endMinute() {
 function gameOver() {
   G.running = false; sfx.over();
   const mins = G.t.act / 60;
-  ev.over({ mode: G.mode, score: G.score, wpm: mins > 0.08 ? Math.round((G.t.ok + G.t.words) / 5 / mins) : 0, words: G.t.words, bestCombo: G.bestCombo, minutes: G.minute - 1 });
+  ev.over({ mode: G.mode, score: G.score, wpm: mins > 0.08 ? Math.round(G.t.cw / 5 / mins) : 0, words: G.t.words, bestCombo: G.bestCombo, minutes: G.minute - 1 });
 }
 
 // ---------- update ----------

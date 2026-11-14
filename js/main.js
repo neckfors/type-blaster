@@ -101,7 +101,7 @@ const events = {
     if (G.score !== hudCache.score) { hudCache.score = G.score; $('score').textContent = G.score; }
     if (G.minute !== hudCache.minute) { hudCache.minute = G.minute; $('hudMinute').textContent = t('minute', { n: G.minute }); }
     $('timefill').style.transform = `scaleX(${Math.min(1, G.minTime / game.MINUTE)})`;
-    const w = G.mode === 'math' ? G.t.words : G.minTime > game.MINUTE * 0.15 ? Math.round((G.m.ok + G.m.words) / 5 / (Math.max(G.m.act, 5) / 60)) : '-';
+    const w = G.mode === 'math' ? G.t.words : G.minTime > game.MINUTE * 0.15 ? Math.round(G.m.cw / 5 / (Math.max(G.m.act, 5) / 60)) : '-';
     if (w !== hudCache.wpm) { hudCache.wpm = w; $('liveWpm').textContent = w; }
     if (G.combo !== hudCache.combo) {
       hudCache.combo = G.combo;
