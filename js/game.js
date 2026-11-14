@@ -1,6 +1,7 @@
 // Game logic and canvas rendering. UI text comes in through ev.t() so it stays translatable.
 import { sfx } from './audio.js';
 import { FX } from './fx.js';
+import * as ms from './mathstats.js';
 
 const params = new URLSearchParams(location.search);
 export const MINUTE = Number(params.get('minute')) || 60; // seconds per round (?minute=10 for testing)
@@ -13,10 +14,10 @@ const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans
 const fx = new FX();
 let canvas, ctx, words, ev = {};
 let W = 0, H = 0, S = 1, dpr = 1, clock = 0, lastTs = 0;
-let opts = { speed: 1, accents: false };
+let opts = { speed: 1, accents: false, mode: 'words' };
 const stat = () => ({ keys: 0, ok: 0, words: 0, best: 0 });
 const fresh = () => ({
-  running: false, paused: false, lives: MAX_LIVES, score: 0, combo: 0, bestCombo: 0,
+  mode: opts.mode, running: false, paused: false, lives: MAX_LIVES, score: 0, combo: 0, bestCombo: 0,
   time: 0, minute: 1, minTime: 0, enemies: [], target: null, spawnT: 0.4, grace: 0, cps: 1, lastKill: 0, clockOn: false, typeTime: 0,
   aim: 0, recoil: 0, recent: [], m: stat(), t: stat(),
 });
@@ -55,7 +56,12 @@ export function start() {
 export function pause() { if (G.running && !G.paused) { G.paused = true; return true; } return false; }
 export function resume() { G.paused = false; G.grace = 1.2; G.clockOn = false; sfx.go(); }
 export function quit() { G.running = false; G.paused = false; G.enemies = []; G.target = null; }
-export function unlock() { // Backspace: first removes a wrong (red) letter, otherwise lets go of the monster
+export function unlock() {
+  if (G.mode === 'math') { // Backspace removes a wrong (red) digit, otherwise the last correct one
+    const e = G.target; if (!e) return;
+    if (e.bad) { e.bad = false; e.badCh = ''; } else if (e.typed > 0) e.typed--;
+    return;
+  } // Backspace: first removes a wrong (red) letter, otherwise lets go of the monster
   const e = G.target; if (!e) return;
   if (e.bad) { e.bad = false; return; }
   e.typed = 0; G.target = null;
@@ -80,11 +86,28 @@ function pickWord() {
   return w;
 }
 
+function pickMath() {
+  const onScreen = new Set(G.enemies.map(e => e.word));
+  let c = ms.FACTS.filter(([a, b]) => !G.recent.includes(a + 'x' + b) && !onScreen.has(a + '×' + b) && !onScreen.has(b + '×' + a));
+  if (!c.length) c = ms.FACTS;
+  let n = Math.random() * c.reduce((t, [a, b]) => t + ms.weight(a, b), 0), f = c[c.length - 1];
+  for (const x of c) { n -= ms.weight(x[0], x[1]); if (n <= 0) { f = x; break; } }
+  G.recent.push(f[0] + 'x' + f[1]); if (G.recent.length > 6) G.recent.shift();
+  return Math.random() < 0.5 ? f : [f[1], f[0]];
+}
+
 function spawn() {
-  const word = pickWord();
-  if (!word) { G.spawnT = 0.3; return; }
+  let word, extra = {}, label;
+  if (G.mode === 'math') {
+    const [a, b] = pickMath();
+    word = a + '×' + b; label = `${a} × ${b} = 00`;
+    extra = { a, b, ans: String(a * b), failed: false, badCh: '' };
+  } else {
+    word = pickWord();
+    if (!word) { G.spawnT = 0.3; return; }
+  }
   ctx.font = labelFont();
-  const tw = ctx.measureText(word).width, w = tw + 28 * S;
+  const tw = ctx.measureText(label || word).width, w = tw + 28 * S;
   const amp = 14 * S, band = Math.min(W, 640 * S + 40), mid = W / 2; // keep monsters near the middle
   const lo = Math.max(w / 2 + amp + 10, mid - band / 2 + w / 2), hi = Math.min(W - w / 2 - amp - 10, mid + band / 2 - w / 2);
   let bx = W / 2, bd = -1;
@@ -94,7 +117,7 @@ function spawn() {
     for (const o of G.enemies) if (o.y < H * 0.35) d = Math.min(d, Math.abs(o.baseX - x));
     if (d > bd) { bd = d; bx = x; }
   }
-  G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: -40 * S, age: 0, phase: Math.random() * 6.28, amp, emoji: rand(MONSTERS), color: rand(COLORS), shake: 0, bad: false });
+  G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: -40 * S, age: 0, phase: Math.random() * 6.28, amp, emoji: rand(MONSTERS), color: rand(COLORS), shake: 0, bad: false, ...extra });
   G.spawnT = spawnGap() * (0.85 + Math.random() * 0.3);
 }
 
@@ -112,6 +135,7 @@ export function handleChar(raw) {
   if (!G.running || G.paused || G.grace > 0) return;
   const ch = raw.toLowerCase();
   if (!ch.trim() || ch.length > 2) return;
+  if (G.mode === 'math') return handleMath(ch);
   if (G.target?.bad) return; // one wrong letter blocks everything until Backspace
   G.clockOn = true; // the minute clock starts with the first typed letter
   G.m.keys++; G.t.keys++;
@@ -130,11 +154,27 @@ export function handleChar(raw) {
   if (e.typed >= e.word.length) kill(e);
 }
 
+function handleMath(ch) {
+  const e = G.target;
+  if (!/^[0-9]$/.test(ch) || !e || e.bad) return; // one wrong digit blocks input until Backspace
+  G.clockOn = true; G.m.keys++; G.t.keys++;
+  if (e.ans[e.typed] !== ch) {
+    sfx.wrong(); e.shake = 0.3; e.bad = true; e.badCh = ch; G.combo = 0;
+    if (!e.failed) { e.failed = true; ms.record(e.a, e.b, false); }
+    ev.hud?.(G); return;
+  }
+  e.typed++; G.m.ok++; G.t.ok++;
+  sfx.key(Math.min(e.typed, 10));
+  fx.burst(e.x, e.y + 40 * S, '#6bff9e', 5, 140);
+  if (e.typed >= e.ans.length) kill(e);
+}
+
 function kill(e) {
+  if (e.ans && !e.failed) ms.record(e.a, e.b, true);
   const tip = cannonTip();
   fx.laser(tip.x, tip.y, e.x, e.y); G.recoil = 1;
   sfx.shoot(); sfx.boom();
-  const len = e.word.length;
+  const len = e.ans ? 4 : e.word.length; // a solved problem counts like a 4-letter word
   G.cps = clamp(0.6 * G.cps + 0.4 * (len + 1) / clamp(G.time - G.lastKill, 0.25, 12), 0.4, 12); G.lastKill = G.time;
   fx.burst(e.x, e.y, e.color, 36, 330); fx.burst(e.x, e.y, '#ffffff', 14, 210);
   fx.ring(e.x, e.y, e.color, 110 * S + len * 6);
@@ -157,6 +197,7 @@ function kill(e) {
 }
 
 function hit(e) {
+  if (e.ans && !e.failed) ms.record(e.a, e.b, false);
   G.lives--; G.combo = 0;
   fx.burst(e.x, lineY(), '#ff4d6d', 40, 300); fx.ring(e.x, lineY(), '#ff4d6d', 150);
   fx.shake = 14; fx.flash = 1; sfx.hit();
@@ -168,7 +209,7 @@ function hit(e) {
 
 function endMinute() {
   const m = G.m, mins = MINUTE / 60;
-  const s = { minute: G.minute, wpm: Math.round(m.ok / 5 / mins), accuracy: m.keys ? Math.round(m.ok / m.keys * 100) : 100, words: m.words, bestCombo: m.best };
+  const s = { mode: G.mode, minute: G.minute, wpm: Math.round(m.ok / 5 / mins), accuracy: m.keys ? Math.round(m.ok / m.keys * 100) : 100, words: m.words, bestCombo: m.best };
   G.paused = true; G.minute++; G.minTime = 0; G.m = stat(); G.m.best = G.combo;
   ev.minuteDone(s); ev.hud?.(G);
 }
@@ -176,7 +217,7 @@ function endMinute() {
 function gameOver() {
   G.running = false; sfx.over();
   const mins = G.typeTime / 60;
-  ev.over({ score: G.score, wpm: mins > 0.08 ? Math.round(G.t.ok / 5 / mins) : 0, words: G.t.words, bestCombo: G.bestCombo, minutes: G.minute - 1 });
+  ev.over({ mode: G.mode, score: G.score, wpm: mins > 0.08 ? Math.round(G.t.ok / 5 / mins) : 0, words: G.t.words, bestCombo: G.bestCombo, minutes: G.minute - 1 });
 }
 
 // ---------- update ----------
@@ -188,6 +229,7 @@ function update(dt) {
   G.aim += (want - G.aim) * Math.min(1, dt * 14);
   for (const e of G.enemies) e.shake = Math.max(0, e.shake - dt);
   if (!G.running || G.paused) return;
+  if (G.mode === 'math' && !G.target && G.enemies.length) G.target = G.enemies.reduce((a, b) => (b.y > a.y ? b : a)); // autolock the lowest
   if (G.grace > 0) { G.grace -= dt; return; }
   G.time += dt;
   if (G.clockOn) { G.minTime += dt; G.typeTime += dt; }
@@ -269,6 +311,15 @@ function drawEnemy(e) {
   ctx.stroke();
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   const x0 = lx - e.tw / 2, ty = ly + lh / 2 + 1, done = e.word.slice(0, e.typed);
+  if (e.ans) { // multiplication: question in white, typed digits green, a wrong digit red
+    const q = `${e.a} × ${e.b} = `;
+    ctx.fillStyle = '#ffffff'; ctx.fillText(q, x0, ty);
+    let x = x0 + ctx.measureText(q).width; const d = e.ans.slice(0, e.typed);
+    ctx.fillStyle = '#6bff9e'; ctx.fillText(d, x, ty); x += ctx.measureText(d).width;
+    if (e.bad) { ctx.fillStyle = '#ff4d6d'; ctx.fillText(e.badCh, x, ty); }
+    else if (e.typed < e.ans.length) { ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.fillText('?', x, ty); }
+    return;
+  }
   const dw = ctx.measureText(done).width;
   ctx.fillStyle = '#6bff9e'; ctx.fillText(done, x0, ty);
   const rest = e.word.slice(e.typed);

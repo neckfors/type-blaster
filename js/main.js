@@ -1,6 +1,7 @@
 // UI wiring: menus, HUD, keyboard input, settings, service worker updates.
 import { loadI18n, t, loadWords } from './i18n.js';
 import * as game from './game.js';
+import * as ms from './mathstats.js';
 import { initAudio, setSound, resumeAudio, sfx } from './audio.js';
 
 const $ = id => document.getElementById(id);
@@ -9,7 +10,7 @@ const store = {
   set(key, v) { try { localStorage.setItem('wordshooter.' + key, JSON.stringify(v)); } catch { /* storage unavailable */ } },
 };
 const SPEEDS = { slow: 0.7, normal: 1, fast: 1.3 };
-const settings = { speed: store.get('speed', 'normal'), sound: store.get('sound', true), accents: store.get('accents', false) };
+const settings = { speed: store.get('speed', 'normal'), sound: store.get('sound', true), accents: store.get('accents', false), mode: store.get('mode', 'words') };
 const kb = $('kb');
 let panel = 'start';
 
@@ -25,13 +26,19 @@ function applySettings() {
   document.querySelectorAll('#speedSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.speed === settings.speed));
   $('soundBtn').textContent = t(settings.sound ? 'soundOn' : 'soundOff');
   $('accBtn').textContent = t(settings.accents ? 'accOn' : 'accOff');
+  const math = settings.mode === 'math';
+  document.querySelectorAll('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === settings.mode));
+  $('accBtn').hidden = math; $('gridBtn').hidden = !math;
+  $('tag').textContent = t(math ? 'taglineMath' : 'tagline'); $('how').textContent = t(math ? 'howToMath' : 'howTo');
+  $('hudLbl').textContent = t(math ? 'solved' : 'wpm');
   setSound(settings.sound);
-  game.configure({ speed: SPEEDS[settings.speed], accents: settings.accents });
+  game.configure({ speed: SPEEDS[settings.speed], accents: settings.accents, mode: settings.mode });
 }
 
 function renderBest() {
-  const s = store.get('bestScore', 0), w = store.get('bestWpm', 0);
-  $('best').textContent = s ? t('best', { score: s, wpm: w }) : '';
+  const math = settings.mode === 'math';
+  const s = store.get(math ? 'bestScoreMath' : 'bestScore', 0), w = store.get('bestWpm', 0);
+  $('best').textContent = s ? (math ? t('bestMath', { score: s }) : t('best', { score: s, wpm: w })) : '';
 }
 
 // ---------- game flow ----------
@@ -46,18 +53,26 @@ function toMenu() { game.quit(); $('hud').hidden = true; renderBest(); show('sta
 const events = {
   t,
   minuteDone(s) {
+    const math = s.mode === 'math';
     $('mTitle').textContent = t('minuteDone', { n: s.minute });
-    $('mWpm').textContent = s.wpm;
-    const praise = t('praise'); $('mPraise').textContent = praise[s.wpm >= 20 ? 2 : s.wpm >= 10 ? 1 : 0];
-    $('mAcc').textContent = s.accuracy + '%'; $('mWords').textContent = s.words; $('mCombo').textContent = s.bestCombo;
+    $('mWpm').textContent = math ? s.words : s.wpm; $('mWpm').nextElementSibling.textContent = t(math ? 'solved' : 'wpm');
+    const praise = t(math ? 'praiseMath' : 'praise');
+    $('mPraise').textContent = praise[math ? (s.words >= 12 ? 2 : s.words >= 6 ? 1 : 0) : (s.wpm >= 20 ? 2 : s.wpm >= 10 ? 1 : 0)];
+    $('mAcc').textContent = s.accuracy + '%'; $('mCombo').textContent = s.bestCombo;
+    $('mWords').textContent = math ? `${ms.mastered()}/${ms.FACTS.length}` : s.words;
+    $('mWords').nextElementSibling.textContent = t(math ? 'mastered' : 'words');
     sfx.minute(); show('minute');
-    if (s.wpm > store.get('bestWpm', 0)) store.set('bestWpm', s.wpm);
+    if (!math && s.wpm > store.get('bestWpm', 0)) store.set('bestWpm', s.wpm);
   },
   over(s) {
-    const isBest = s.score > store.get('bestScore', 0);
-    if (isBest) store.set('bestScore', s.score);
-    if (s.wpm > store.get('bestWpm', 0)) store.set('bestWpm', s.wpm);
-    $('oScore').textContent = s.score; $('oWpm').textContent = s.wpm; $('oWords').textContent = s.words; $('oCombo').textContent = s.bestCombo;
+    const math = s.mode === 'math', bk = math ? 'bestScoreMath' : 'bestScore';
+    const isBest = s.score > store.get(bk, 0);
+    if (isBest) store.set(bk, s.score);
+    if (!math && s.wpm > store.get('bestWpm', 0)) store.set('bestWpm', s.wpm);
+    $('oScore').textContent = s.score; $('oCombo').textContent = s.bestCombo;
+    $('oWpm').textContent = math ? `${ms.mastered()}/${ms.FACTS.length}` : s.wpm; $('oWpm').nextElementSibling.textContent = t(math ? 'mastered' : 'wpm');
+    $('oWords').textContent = s.words; $('oWords').nextElementSibling.textContent = t(math ? 'solved' : 'words');
+    $('gridBtn2').hidden = !math;
     $('oNew').hidden = !isBest; $('hud').hidden = true;
     show('over');
   },
@@ -70,7 +85,7 @@ const events = {
     if (G.score !== hudCache.score) { hudCache.score = G.score; $('score').textContent = G.score; }
     if (G.minute !== hudCache.minute) { hudCache.minute = G.minute; $('hudMinute').textContent = t('minute', { n: G.minute }); }
     $('timefill').style.transform = `scaleX(${Math.min(1, G.minTime / game.MINUTE)})`;
-    const w = G.minTime > game.MINUTE * 0.15 ? Math.round(G.m.ok / 5 / (G.minTime / 60)) : '-';
+    const w = G.mode === 'math' ? G.t.words : G.minTime > game.MINUTE * 0.15 ? Math.round(G.m.ok / 5 / (G.minTime / 60)) : '-';
     if (w !== hudCache.wpm) { hudCache.wpm = w; $('liveWpm').textContent = w; }
     if (G.combo !== hudCache.combo) {
       hudCache.combo = G.combo;
@@ -87,7 +102,7 @@ document.addEventListener('keydown', e => {
   if (panel) {
     if ((e.key === 'Enter' || e.key === ' ') && document.activeElement?.tagName !== 'BUTTON') {
       e.preventDefault();
-      ({ start: play, minute: () => { show(null); game.resume(); }, paused: resumeGame, over: play })[panel]?.();
+      ({ grid: closeGrid, start: play, minute: () => { show(null); game.resume(); }, paused: resumeGame, over: play })[panel]?.();
     }
     return;
   }
@@ -100,6 +115,22 @@ kb.addEventListener('input', () => { for (const ch of kb.value) game.handleChar(
 $('c').addEventListener('pointerdown', () => { if (!panel) kb.focus(); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && !panel) pauseGame(); });
 
+let gridFrom = 'start';
+function showGrid() {
+  gridFrom = panel;
+  let h = '<tr><th></th>' + [2, 3, 4, 5, 6, 7, 8, 9].map(n => `<th>${n}</th>`).join('') + '</tr>';
+  for (let a = 2; a <= 9; a++) {
+    h += `<tr><th>${a}</th>`;
+    for (let b = 2; b <= 9; b++) h += `<td style="background:${ms.color(a, b)}">${a * b}</td>`;
+    h += '</tr>';
+  }
+  $('gridTable').innerHTML = h; show('grid');
+}
+function closeGrid() { show(gridFrom); }
+$('gridBtn').onclick = showGrid; $('gridBtn2').onclick = showGrid; $('gridBack').onclick = closeGrid;
+document.querySelectorAll('#modeSeg button').forEach(b => {
+  b.onclick = () => { settings.mode = b.dataset.mode; store.set('mode', settings.mode); applySettings(); renderBest(); };
+});
 $('play').onclick = play;
 $('again').onclick = play;
 $('continue').onclick = () => { show(null); game.resume(); };
