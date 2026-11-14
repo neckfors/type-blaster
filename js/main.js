@@ -127,7 +127,7 @@ document.addEventListener('keydown', e => {
 });
 // Soft keyboards on phones/tablets don't send usable keydown keys, so read the hidden input instead.
 kb.addEventListener('input', () => { for (const ch of kb.value) game.handleChar(ch); kb.value = ''; });
-$('c').addEventListener('pointerdown', () => { if (!panel) kb.focus(); });
+$('c').addEventListener('pointerdown', () => { if (!panel) { kb.focus(); game.handleChar(' '); } }); // tapping the screen also shoots a finished word (phones)
 document.addEventListener('visibilitychange', () => { if (document.hidden && !panel) pauseGame(); });
 
 let gridFrom = 'start';
