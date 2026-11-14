@@ -28,9 +28,10 @@ function createPlayer() {
 }
 const kb = $('kb');
 let panel = 'start';
+let panelAt = 0; // when the current panel opened
 
 function show(name) {
-  panel = name;
+  panel = name; panelAt = performance.now();
   document.querySelectorAll('.panel').forEach(p => { p.hidden = p.id !== 'p-' + name; });
   $('overlay').hidden = !name;
   if (name) { const b = document.querySelector(`#p-${name} .big`); if (b) b.focus(); }
@@ -116,6 +117,7 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (panel) {
     const enterOnly = panel === 'minute' || panel === 'over' || panel === 'paused'; // space is mid-typing, so it must not close these
+    if (enterOnly && performance.now() - panelAt < 1000) { e.preventDefault(); return; } // 1s lock so fast typing can't skip it
     if ((e.key === 'Enter' || (e.key === ' ' && !enterOnly)) && document.activeElement?.tagName !== 'BUTTON') {
       e.preventDefault();
       ({ grid: closeGrid, start: play, minute: () => { show(null); game.resume(); }, paused: resumeGame, over: play })[panel]?.();
