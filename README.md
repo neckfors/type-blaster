@@ -1,6 +1,6 @@
 # Word Shooter
 
-A typing game for kids (made for a 12 year old). Monsters fall from the sky, each carrying a word. Type the word to shoot it down before it reaches the line. Installable as an app (PWA) and works offline.
+A typing game for kids (made for a 12 year old). Monsters fall from the sky, each carrying a word. Type the word, then press SPACE to shoot it down before it reaches the line. Installable as an app (PWA) and works offline.
 
 The interface is in English, the falling words are Swedish.
 
@@ -8,6 +8,7 @@ Play online: https://neckfors.github.io/word-shooter/
 
 ## How to play
 - The closest monster is always locked on (the cannon aims at it); type its word. The other monsters can't be typed until it is gone.
+- **Press SPACE to shoot** (words mode): when the whole word is typed the monster shows a green "SPACE to shoot!" label and nothing happens until you press space, like the space between words in a typing test. Extra letters are ignored meanwhile. Multiplication mode still fires on the last digit.
 - A wrong letter turns red and blocks input until you press Backspace (it also breaks your combo). Backspace with no red letter removes the last correct letter. Monsters stay near the middle of the screen. The minute clock starts when you type the first letter.
 - A monster that reaches the pink line costs one heart (5 hearts). Every 10 words in a row gives a heart back.
 - After every minute the game pauses and shows your speed in words per minute (WPM) and accuracy. The next minute is a little faster, and the words get a bit longer. WPM follows the usual typing-test convention (as on 10fastfingers): every 5 characters count as one word, and each word includes its trailing space, so short and long words are treated evenly. Time spent waiting for the next word to appear is not counted, so the number matches a fixed word list like 10fastfingers.

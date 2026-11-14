@@ -128,20 +128,25 @@ function spawnGap() {
 export function handleChar(raw) {
   if (!G.running || G.paused || G.grace > 0) return;
   const ch = raw.toLowerCase();
-  if (!ch.trim() || ch.length > 2) return;
-  if (G.mode === 'math') return handleMath(ch);
+  if (ch.length > 2) return;
+  if (G.mode === 'math') return ch.trim() ? handleMath(ch) : undefined;
+  if (!ch.trim()) { // SPACE fires the shot once the whole word is typed, like the space in a typing test
+    const t = G.target;
+    if (t && !t.bad && t.typed >= t.word.length) { G.clockOn = true; G.m.keys++; G.t.keys++; kill(t); }
+    return;
+  }
   if (G.target?.bad) return; // one wrong letter blocks everything until Backspace
   G.clockOn = true; // the minute clock starts with the first typed letter
   G.m.keys++; G.t.keys++;
   const e = G.target; // always the closest word (autolock)
-  if (!e) return;
+  if (!e || e.typed >= e.word.length) return; // word complete: only SPACE does anything
   if (k(e.word[e.typed]) !== k(ch)) { // wrong key: the next letter turns red until Backspace
     sfx.wrong(); e.shake = 0.3; e.bad = true; G.combo = 0; ev.hud?.(G); return;
   }
   e.typed++; G.m.ok++; G.t.ok++;
   sfx.key(Math.min(e.typed, 10));
   fx.burst(e.x, e.y + 40 * S, '#6bff9e', 5, 140);
-  if (e.typed >= e.word.length) kill(e);
+  if (e.typed >= e.word.length) { sfx.combo(); fx.ring(e.x, e.y, '#6bff9e', 70 * S); } // ready: press SPACE
 }
 
 function handleMath(ch) {
@@ -337,6 +342,13 @@ function drawEnemy0(e) {
     ctx.fillStyle = '#ff4d6d'; ctx.fillText(rest[0], x0 + dw, ty);
     ctx.fillStyle = '#ffffff'; ctx.fillText(rest.slice(1), x0 + dw + ctx.measureText(rest[0]).width, ty);
   } else { ctx.fillStyle = '#ffffff'; ctx.fillText(rest, x0 + dw, ty); }
+  if (isT && !rest && !e.bad) { // word complete: show that SPACE shoots
+    ctx.save(); const p = 0.75 + Math.sin(clock * 10) * 0.25;
+    ctx.font = `bold ${Math.round(22 * S)}px system-ui, sans-serif`; ctx.textAlign = 'center';
+    const msg = ev.t('pressSpace'), mw = ctx.measureText(msg).width + 28 * S, my = ly + lh + 20 * S;
+    ctx.globalAlpha = p; ctx.fillStyle = '#6bff9e'; rr(lx - mw / 2, my - 15 * S, mw, 30 * S, 15 * S); ctx.fill();
+    ctx.fillStyle = '#06210f'; ctx.fillText(msg, lx, my + 1); ctx.restore();
+  }
 }
 
 function draw() {
