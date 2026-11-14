@@ -11,6 +11,7 @@ Play online: https://neckfors.github.io/word-shooter/
 - A wrong letter only shakes the word and breaks your combo. Backspace unlocks the current monster.
 - A monster that reaches the pink line costs one heart (5 hearts). Every 10 words in a row gives a heart back.
 - After every minute the game pauses and shows your speed in words per minute (WPM) and accuracy. The next minute is a little faster, and the words get a bit longer.
+- The screen is never empty: when you clear the last monster, a new one appears right away.
 - Settings: Slow / Normal / Fast speed, sound on/off, and "Accents optional" (type a instead of å or ä, o instead of ö).
 - Esc pauses. Works with a keyboard, and with the on-screen keyboard on phones and tablets.
 

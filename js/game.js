@@ -180,6 +180,7 @@ function update(dt) {
   if (!G.running) return;
   G.spawnT -= dt;
   const maxOn = Math.min(6, 3 + G.minute);
+  if (G.enemies.length === 0 && G.spawnT > 0.35) G.spawnT = 0.35; // never leave the screen empty
   if (G.spawnT <= 0 && G.enemies.length < maxOn) spawn();
   if (G.minTime >= MINUTE) endMinute();
 }
