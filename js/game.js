@@ -15,7 +15,7 @@ const fx = new FX();
 let canvas, ctx, words, ev = {};
 let W = 0, H = 0, S = 1, dpr = 1, clock = 0, lastTs = 0;
 let opts = { speed: 1, accents: false, mode: 'words' };
-const stat = () => ({ keys: 0, ok: 0, words: 0, best: 0, act: 0, cw: 0 });
+const stat = () => ({ keys: 0, ok: 0, words: 0, best: 0, cw: 0 });
 const fresh = () => ({
   mode: opts.mode, running: false, paused: false, lives: MAX_LIVES, score: 0, combo: 0, bestCombo: 0,
   time: 0, minute: 1, minTime: 0, enemies: [], target: null, spawnT: 0.4, spawned: 0, grace: 0, cps: 1.6, lastKill: 0, clockOn: false, typeTime: 0,
@@ -111,14 +111,15 @@ function spawn() {
     for (const o of G.enemies) if (o.y < H * 0.35) d = Math.min(d, Math.abs(o.baseX - x));
     if (d > bd) { bd = d; bx = x; }
   }
-  G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: -40 * S, age: 0, phase: Math.random() * 6.28, amp, emoji: rand(MONSTERS), color: rand(COLORS), shake: 0, bad: false, ...extra });
+  G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: H * 0.09, age: 0, phase: Math.random() * 6.28, amp, emoji: rand(MONSTERS), color: rand(COLORS), shake: 0, bad: false, ...extra });
   G.spawned++; G.spawnT = spawnGap() * (0.85 + Math.random() * 0.3) * (G.spawned <= 4 ? 0.45 : 1.15); // quick start, then a calmer stream
 }
 
 // Pace follows the player: ~5 wpm and ~100 wpm both get a steady stream of targets.
 // G.cps is a moving average of characters killed per second.
-const MIN_ON = 3;
-const maxOnScreen = () => clamp(Math.round(2 + G.cps * 0.8), 2, 7);
+const MIN_ON = 4;
+const maxOnScreen = () => clamp(Math.round(4 + G.cps * 0.5), 4, 7);
+const topClear = () => G.enemies.every(o => o.y > H * 0.09 + 95 * S); // room for a new word at the top
 function spawnGap() {
   const load = 0.8 * Math.pow(1.1, G.minute - 1) * opts.speed; // each minute asks a bit more
   return clamp(5 / (G.cps * load), 0.5, 4);
@@ -203,7 +204,7 @@ function hit(e) {
 }
 
 function endMinute() {
-  const m = G.m, mins = Math.max(m.act, 10) / 60; // only time with a word to type counts, like a fixed word list
+  const m = G.m, mins = MINUTE / 60;
   const s = { mode: G.mode, minute: G.minute, wpm: Math.round(m.cw / 5 / mins), accuracy: m.keys ? Math.round(m.ok / m.keys * 100) : 100, words: m.words, bestCombo: m.best };
   G.paused = true; G.minute++; G.minTime = 0; G.m = stat(); G.m.best = G.combo;
   ev.minuteDone(s); ev.hud?.(G);
@@ -211,7 +212,7 @@ function endMinute() {
 
 function gameOver() {
   G.running = false; sfx.over();
-  const mins = G.t.act / 60;
+  const mins = G.typeTime / 60;
   ev.over({ mode: G.mode, score: G.score, wpm: mins > 0.08 ? Math.round(G.t.cw / 5 / mins) : 0, words: G.t.words, bestCombo: G.bestCombo, minutes: G.minute - 1 });
 }
 
@@ -227,14 +228,14 @@ function update(dt) {
   if (!G.target && G.enemies.length) G.target = G.enemies.reduce((a, b) => (b.y > a.y ? b : a)); // autolock the closest (lowest) monster; the others can't be typed until it is gone
   if (G.grace > 0) { G.grace -= dt; return; }
   G.time += dt;
-  if (G.clockOn) { G.minTime += dt; G.typeTime += dt; if (G.target) { G.m.act += dt; G.t.act += dt; } } // act = time with a word to type
+  if (G.clockOn) { G.minTime += dt; G.typeTime += dt; }
   const v = (lineY() + 40 * S) * 0.048 * Math.pow(1.1, G.minute - 1) * opts.speed; // ~21s top to bottom at start
   for (const e of G.enemies) { e.age += dt; e.y += v * dt; e.x = e.baseX + Math.sin(e.age * 1.6 + e.phase) * e.amp; }
   for (const e of [...G.enemies]) if (G.running && e.y >= lineY()) hit(e);
   if (!G.running) return;
   G.spawnT -= dt;
-  if (G.enemies.length < MIN_ON && G.spawnT > 0.35) G.spawnT = 0.35; // always something to shoot at
-  if (G.spawnT <= 0 && G.enemies.length < maxOnScreen()) spawn();
+  if (G.enemies.length < MIN_ON && G.spawnT > 0.12) G.spawnT = 0.12; // always something to shoot at
+  if (G.spawnT <= 0 && G.enemies.length < maxOnScreen() && topClear()) spawn();
   if (G.minTime >= MINUTE) endMinute();
 }
 
