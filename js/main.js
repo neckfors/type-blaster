@@ -115,7 +115,8 @@ const hudCache = {};
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (panel) {
-    if ((e.key === 'Enter' || e.key === ' ') && document.activeElement?.tagName !== 'BUTTON') {
+    const enterOnly = panel === 'minute' || panel === 'over' || panel === 'paused'; // space is mid-typing, so it must not close these
+    if ((e.key === 'Enter' || (e.key === ' ' && !enterOnly)) && document.activeElement?.tagName !== 'BUTTON') {
       e.preventDefault();
       ({ grid: closeGrid, start: play, minute: () => { show(null); game.resume(); }, paused: resumeGame, over: play })[panel]?.();
     }

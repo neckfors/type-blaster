@@ -45,7 +45,7 @@
   "minuteDone": "Minute {n} complete!",
   "faster": "Next minute: monsters get a little faster",
   "praise": ["Nice start!", "Great typing!", "Wow, super fast!"],
-  "continue": "Continue",
+  "continue": "Continue (press Enter)",
   "pause": "Pause",
   "paused": "Paused",
   "resume": "Resume",

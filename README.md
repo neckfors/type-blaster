@@ -8,6 +8,7 @@ Play online: https://neckfors.github.io/word-shooter/
 
 ## How to play
 - The closest monster is always locked on (the cannon aims at it); type its word. The other monsters can't be typed until it is gone.
+- **Between minutes:** the minute summary, pause and game-over screens only close with Enter (or their button), never Space, so a space typed mid-word does not skip them.
 - **Press SPACE to shoot** (words mode): when the whole word is typed the monster shows a green "SPACE to shoot!" label and nothing happens until you press space, like the space between words in a typing test. Extra letters are ignored meanwhile. On phones, tapping the screen also shoots a finished word. Multiplication mode still fires on the last digit.
 - A wrong letter turns red and blocks input until you press Backspace (it also breaks your combo). Backspace with no red letter removes the last correct letter. Monsters stay near the middle of the screen. The minute clock starts when you type the first letter.
 - A monster that reaches the pink line costs one heart (5 hearts). Every 10 words in a row gives a heart back.
