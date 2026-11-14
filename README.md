@@ -7,8 +7,8 @@ The interface is in English, the falling words are Swedish.
 Play online: https://neckfors.github.io/word-shooter/
 
 ## How to play
-- Type the word under a monster. The first letter you type locks on to that monster, and the cannon turns towards it.
-- A wrong letter turns red and blocks input until you press Backspace (it also breaks your combo). Backspace with no red letter lets go of the current monster. Monsters stay near the middle of the screen. The minute clock starts when you type the first letter.
+- The closest monster is always locked on (the cannon aims at it); type its word. The other monsters can't be typed until it is gone.
+- A wrong letter turns red and blocks input until you press Backspace (it also breaks your combo). Backspace with no red letter removes the last correct letter. Monsters stay near the middle of the screen. The minute clock starts when you type the first letter.
 - A monster that reaches the pink line costs one heart (5 hearts). Every 10 words in a row gives a heart back.
 - After every minute the game pauses and shows your speed in words per minute (WPM) and accuracy. The next minute is a little faster, and the words get a bit longer.
 - The pace follows you: the faster you type, the faster and more monsters come, so 5 wpm and 100 wpm both get a steady, fair game. There is always something to shoot at. Each minute asks a bit more of you.
@@ -32,7 +32,7 @@ Then open http://localhost:8765. For a short test round add `?minute=10` (second
 Interface text and word lists are separate from the code.
 
 - UI text: copy `lang/en.json` to `lang/xx.json` and translate it.
-- Words: copy `words/sv.json` to `words/xx.json`. It has three lists: `easy` (short), `medium` and `hard`. Mix word classes (nouns, verbs, adjectives, adverbs, pronouns, prepositions, numbers). Avoid spaces in words.
+- Words: copy `words/sv.json` to `words/xx.json`. It has three lists: `easy` (short), `medium` and `hard`. Mix word classes (nouns, verbs, adjectives, adverbs, pronouns, prepositions, numbers). Avoid spaces in words. Read the whole list through for anything vulgar or embarrassing for a child (including look-alikes in English) before releasing.
 - Choose them with `?ui=xx&words=yy` (defaults are `en` and `sv`), and add the new files to `FILES` in `sw.js`.
 
 ## Releases and updates

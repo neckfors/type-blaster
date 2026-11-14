@@ -21,7 +21,7 @@
   "solved": "Solved",
   "mastered": "Mastered",
   "praiseMath": ["Nice start!", "Great counting!", "Wow, math wizard!"],
-  "howTo": "Type the word under a monster to blast it. Don't let them reach the line!",
+  "howTo": "Type the word of the closest monster to blast it. Don't let them reach the line!",
   "play": "Play",
   "speed": "Speed",
   "slow": "Slow",

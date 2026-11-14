@@ -57,14 +57,9 @@ export function pause() { if (G.running && !G.paused) { G.paused = true; return 
 export function resume() { G.paused = false; G.grace = 1.2; G.clockOn = false; sfx.go(); }
 export function quit() { G.running = false; G.paused = false; G.enemies = []; G.target = null; }
 export function unlock() {
-  if (G.mode === 'math') { // Backspace removes a wrong (red) digit, otherwise the last correct one
-    const e = G.target; if (!e) return;
-    if (e.bad) { e.bad = false; e.badCh = ''; } else if (e.typed > 0) e.typed--;
-    return;
-  } // Backspace: first removes a wrong (red) letter, otherwise lets go of the monster
+  // Backspace removes a wrong (red) character, otherwise the last correct one
   const e = G.target; if (!e) return;
-  if (e.bad) { e.bad = false; return; }
-  e.typed = 0; G.target = null;
+  if (e.bad) { e.bad = false; e.badCh = ''; } else if (e.typed > 0) e.typed--;
 }
 
 // ---------- words & spawning ----------
@@ -78,9 +73,8 @@ function pool() {
 
 function pickWord() {
   const onScreen = new Set(G.enemies.map(e => e.word));
-  const firsts = new Set(G.enemies.map(e => k(e.word[0])));
-  const c = pool().filter(w => !onScreen.has(w) && !G.recent.includes(w) && !firsts.has(k(w[0])));
-  if (!c.length) return null; // every first letter is taken: try again shortly
+  const c = pool().filter(w => !onScreen.has(w) && !G.recent.includes(w));
+  if (!c.length) return null;
   const w = rand(c);
   G.recent.push(w); if (G.recent.length > 20) G.recent.shift();
   return w;
@@ -139,12 +133,8 @@ export function handleChar(raw) {
   if (G.target?.bad) return; // one wrong letter blocks everything until Backspace
   G.clockOn = true; // the minute clock starts with the first typed letter
   G.m.keys++; G.t.keys++;
-  let e = G.target;
-  if (!e) {
-    e = G.enemies.filter(o => k(o.word[0]) === k(ch)).sort((a, b) => b.y - a.y)[0];
-    if (!e) { sfx.wrong(); return; }
-    G.target = e;
-  }
+  const e = G.target; // always the closest word (autolock)
+  if (!e) return;
   if (k(e.word[e.typed]) !== k(ch)) { // wrong key: the next letter turns red until Backspace
     sfx.wrong(); e.shake = 0.3; e.bad = true; G.combo = 0; ev.hud?.(G); return;
   }
@@ -229,7 +219,7 @@ function update(dt) {
   G.aim += (want - G.aim) * Math.min(1, dt * 14);
   for (const e of G.enemies) e.shake = Math.max(0, e.shake - dt);
   if (!G.running || G.paused) return;
-  if (G.mode === 'math' && !G.target && G.enemies.length) G.target = G.enemies.reduce((a, b) => (b.y > a.y ? b : a)); // autolock the lowest
+  if (!G.target && G.enemies.length) G.target = G.enemies.reduce((a, b) => (b.y > a.y ? b : a)); // autolock the closest (lowest) monster; the others can't be typed until it is gone
   if (G.grace > 0) { G.grace -= dt; return; }
   G.time += dt;
   if (G.clockOn) { G.minTime += dt; G.typeTime += dt; }
