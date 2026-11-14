@@ -1,0 +1,285 @@
+// Game logic and canvas rendering. UI text comes in through ev.t() so it stays translatable.
+import { sfx } from './audio.js';
+import { FX } from './fx.js';
+
+const params = new URLSearchParams(location.search);
+export const MINUTE = Number(params.get('minute')) || 60; // seconds per round (?minute=10 for testing)
+export const MAX_LIVES = 5;
+const MONSTERS = ['👾', '🛸', '👹', '👻', '🤖', '🐙', '👽', '🦑'];
+const COLORS = ['#ff5ea8', '#5ef0ff', '#ffd35e', '#9d7bff', '#6bff9e', '#ff8a5e'];
+const FONT = '"Trebuchet MS","Segoe UI",system-ui,sans-serif';
+const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+
+const fx = new FX();
+let canvas, ctx, words, ev = {};
+let W = 0, H = 0, S = 1, dpr = 1, clock = 0, lastTs = 0;
+let opts = { speed: 1, accents: false };
+const stat = () => ({ keys: 0, ok: 0, words: 0, best: 0 });
+const fresh = () => ({
+  running: false, paused: false, lives: MAX_LIVES, score: 0, combo: 0, bestCombo: 0,
+  time: 0, minute: 1, minTime: 0, enemies: [], target: null, spawnT: 0.4, grace: 0,
+  aim: 0, recoil: 0, recent: [], m: stat(), t: stat(),
+});
+let G = fresh();
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = a => a[Math.floor(Math.random() * a.length)];
+const k = ch => (opts.accents ? ch.normalize('NFD').replace(/[̀-ͯ]/g, '') : ch);
+const cannonY = () => H - 28 * S;
+const lineY = () => cannonY() - 82 * S;
+const labelFont = () => `700 ${Math.round(26 * S)}px ${FONT}`;
+
+export function init(canvasEl, wordData, events) {
+  canvas = canvasEl; ctx = canvas.getContext('2d'); words = wordData; ev = events;
+  resize();
+  window.addEventListener('resize', resize);
+  window.visualViewport?.addEventListener('resize', resize);
+  requestAnimationFrame(frame);
+}
+export const configure = o => { opts = { ...opts, ...o }; };
+export const getState = () => G;
+
+function resize() {
+  const vv = window.visualViewport;
+  W = vv ? vv.width : innerWidth; H = vv ? vv.height : innerHeight;
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  S = clamp(Math.min(W, H) / 700, 0.75, 1.4);
+  fx.initStars(W, H);
+}
+
+export function start() {
+  G = fresh(); G.running = true; G.grace = 1.2; sfx.go(); ev.hud?.(G);
+}
+export function pause() { if (G.running && !G.paused) { G.paused = true; return true; } return false; }
+export function resume() { G.paused = false; G.grace = 1.2; sfx.go(); }
+export function quit() { G.running = false; G.paused = false; G.enemies = []; G.target = null; }
+export function unlock() { if (G.target) { G.target.typed = 0; G.target = null; } }
+
+// ---------- words & spawning ----------
+function pool() {
+  const { easy, medium, hard } = words, m = G.minute;
+  if (m <= 1) return easy;
+  if (m === 2) return [...easy, ...medium, ...medium];
+  if (m === 3) return [...easy, ...medium, ...medium, ...hard];
+  return [...medium, ...hard, ...hard];
+}
+
+function pickWord() {
+  const onScreen = new Set(G.enemies.map(e => e.word));
+  const firsts = new Set(G.enemies.map(e => k(e.word[0])));
+  const c = pool().filter(w => !onScreen.has(w) && !G.recent.includes(w) && !firsts.has(k(w[0])));
+  if (!c.length) return null; // every first letter is taken: try again shortly
+  const w = rand(c);
+  G.recent.push(w); if (G.recent.length > 20) G.recent.shift();
+  return w;
+}
+
+function spawn() {
+  const word = pickWord();
+  if (!word) { G.spawnT = 0.3; return; }
+  ctx.font = labelFont();
+  const tw = ctx.measureText(word).width, w = tw + 28 * S;
+  const amp = 14 * S, lo = w / 2 + amp + 10, hi = W - w / 2 - amp - 10;
+  let bx = W / 2, bd = -1;
+  for (let i = 0; i < 8; i++) { // pick the spot furthest from the monsters near the top
+    const x = lo + Math.random() * Math.max(1, hi - lo);
+    let d = 1e9;
+    for (const o of G.enemies) if (o.y < H * 0.35) d = Math.min(d, Math.abs(o.baseX - x));
+    if (d > bd) { bd = d; bx = x; }
+  }
+  G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: -40 * S, age: 0, phase: Math.random() * 6.28, amp, emoji: rand(MONSTERS), color: rand(COLORS), shake: 0 });
+  const interval = Math.max(1.8, 3.6 - 0.25 * (G.minute - 1)) / opts.speed;
+  G.spawnT = interval * (0.85 + Math.random() * 0.3);
+}
+
+// ---------- input ----------
+export function handleChar(raw) {
+  if (!G.running || G.paused || G.grace > 0) return;
+  const ch = raw.toLowerCase();
+  if (!ch.trim() || ch.length > 2) return;
+  G.m.keys++; G.t.keys++;
+  let e = G.target;
+  if (!e) {
+    e = G.enemies.filter(o => k(o.word[0]) === k(ch)).sort((a, b) => b.y - a.y)[0];
+    if (!e) { sfx.wrong(); return; }
+    G.target = e;
+  }
+  if (k(e.word[e.typed]) !== k(ch)) { // wrong key: shake the word, lose the combo, nothing worse
+    sfx.wrong(); e.shake = 0.3; G.combo = 0; ev.hud?.(G); return;
+  }
+  e.typed++; G.m.ok++; G.t.ok++;
+  sfx.key(Math.min(e.typed, 10));
+  fx.burst(e.x, e.y + 40 * S, '#6bff9e', 5, 140);
+  if (e.typed >= e.word.length) kill(e);
+}
+
+function kill(e) {
+  const tip = cannonTip();
+  fx.laser(tip.x, tip.y, e.x, e.y); G.recoil = 1;
+  sfx.shoot(); sfx.boom();
+  const len = e.word.length;
+  fx.burst(e.x, e.y, e.color, 36, 330); fx.burst(e.x, e.y, '#ffffff', 14, 210);
+  fx.ring(e.x, e.y, e.color, 110 * S + len * 6);
+  fx.shake = Math.max(fx.shake, 5 + len);
+  G.combo++; G.bestCombo = Math.max(G.bestCombo, G.combo); G.m.best = Math.max(G.m.best, G.combo);
+  G.m.words++; G.t.words++;
+  const pts = Math.round(len * 10 * (1 + Math.min(G.combo, 20) * 0.1));
+  G.score += pts;
+  fx.text(e.x, e.y - 30 * S, '+' + pts, '#ffe066', 28 * S);
+  G.enemies = G.enemies.filter(o => o !== e); G.target = null;
+  if (G.combo % 5 === 0) {
+    fx.text(W / 2, H * 0.32, ev.t('combo', { n: G.combo }), '#5ef0ff', 46 * S);
+    sfx.combo();
+    if (G.combo % 10 === 0 && G.lives < MAX_LIVES) {
+      G.lives++; sfx.life();
+      fx.text(W / 2, H * 0.32 + 52 * S, ev.t('extraLife'), '#ff5ea8', 32 * S);
+    }
+  }
+  ev.hud?.(G);
+}
+
+function hit(e) {
+  G.lives--; G.combo = 0;
+  fx.burst(e.x, lineY(), '#ff4d6d', 40, 300); fx.ring(e.x, lineY(), '#ff4d6d', 150);
+  fx.shake = 14; fx.flash = 1; sfx.hit();
+  G.enemies = G.enemies.filter(o => o !== e);
+  if (G.target === e) G.target = null;
+  ev.hud?.(G);
+  if (G.lives <= 0) gameOver();
+}
+
+function endMinute() {
+  const m = G.m, mins = MINUTE / 60;
+  const s = { minute: G.minute, wpm: Math.round(m.ok / 5 / mins), accuracy: m.keys ? Math.round(m.ok / m.keys * 100) : 100, words: m.words, bestCombo: m.best };
+  G.paused = true; G.minute++; G.minTime = 0; G.m = stat(); G.m.best = G.combo;
+  ev.minuteDone(s); ev.hud?.(G);
+}
+
+function gameOver() {
+  G.running = false; sfx.over();
+  const mins = G.time / 60;
+  ev.over({ score: G.score, wpm: mins > 0.08 ? Math.round(G.t.ok / 5 / mins) : 0, words: G.t.words, bestCombo: G.bestCombo, minutes: G.minute - 1 });
+}
+
+// ---------- update ----------
+function update(dt) {
+  clock += dt; fx.update(dt);
+  G.recoil = Math.max(0, G.recoil - dt * 6);
+  const cx = W / 2, cy = cannonY();
+  const want = G.target ? clamp(Math.atan2(G.target.x - cx, cy - G.target.y), -1.2, 1.2) : 0;
+  G.aim += (want - G.aim) * Math.min(1, dt * 14);
+  for (const e of G.enemies) e.shake = Math.max(0, e.shake - dt);
+  if (!G.running || G.paused) return;
+  if (G.grace > 0) { G.grace -= dt; return; }
+  G.time += dt; G.minTime += dt;
+  const v = (lineY() + 40 * S) * 0.058 * Math.pow(1.1, G.minute - 1) * opts.speed; // ~17s top to bottom at start
+  for (const e of G.enemies) { e.age += dt; e.y += v * dt; e.x = e.baseX + Math.sin(e.age * 1.6 + e.phase) * e.amp; }
+  for (const e of [...G.enemies]) if (G.running && e.y >= lineY()) hit(e);
+  if (!G.running) return;
+  G.spawnT -= dt;
+  const maxOn = Math.min(6, 3 + G.minute);
+  if (G.spawnT <= 0 && G.enemies.length < maxOn) spawn();
+  if (G.minTime >= MINUTE) endMinute();
+}
+
+// ---------- drawing ----------
+function cannonTip() {
+  const L = (56 - G.recoil * 8) * S;
+  return { x: W / 2 + Math.sin(G.aim) * L, y: cannonY() - Math.cos(G.aim) * L };
+}
+
+const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); };
+const easeOutBack = x => 1 + 2.70158 * Math.pow(x - 1, 3) + 1.70158 * Math.pow(x - 1, 2);
+
+function drawGround() {
+  const ly = lineY();
+  const g = ctx.createLinearGradient(0, ly, 0, H);
+  g.addColorStop(0, 'rgba(94,240,255,0)'); g.addColorStop(1, 'rgba(94,240,255,.2)');
+  ctx.fillStyle = g; ctx.fillRect(0, ly, W, H - ly);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,94,168,.6)'; ctx.lineWidth = 2; ctx.setLineDash([14, 10]); ctx.lineDashOffset = -clock * 30;
+  ctx.shadowColor = '#ff5ea8'; ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.moveTo(0, ly); ctx.lineTo(W, ly); ctx.stroke();
+  ctx.restore();
+}
+
+function drawCannon() {
+  const cx = W / 2, cy = cannonY();
+  ctx.save(); ctx.translate(cx, cy);
+  ctx.save(); ctx.rotate(G.aim);
+  const bg = ctx.createLinearGradient(-10 * S, 0, 10 * S, 0);
+  bg.addColorStop(0, '#2b8aa0'); bg.addColorStop(0.5, '#8ff6ff'); bg.addColorStop(1, '#2b8aa0');
+  ctx.fillStyle = bg; ctx.shadowColor = '#5ef0ff'; ctx.shadowBlur = 14;
+  rr(-9 * S, (-52 + G.recoil * 8) * S, 18 * S, 52 * S, 5 * S); ctx.fill();
+  ctx.fillStyle = '#ff5ea8'; ctx.shadowBlur = 0;
+  rr(-11 * S, (-56 + G.recoil * 8) * S, 22 * S, 8 * S, 3 * S); ctx.fill();
+  ctx.restore();
+  const dg = ctx.createRadialGradient(0, -8 * S, 4, 0, 0, 38 * S);
+  dg.addColorStop(0, '#9ffaff'); dg.addColorStop(1, '#1d6a86');
+  ctx.fillStyle = dg; ctx.shadowColor = '#5ef0ff'; ctx.shadowBlur = 18;
+  ctx.beginPath(); ctx.arc(0, 0, 34 * S, Math.PI, 0); ctx.fill();
+  ctx.restore();
+  if (G.recoil > 0.5) { // muzzle flash
+    const t = cannonTip(), r = 34 * S * G.recoil;
+    const rg = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r);
+    rg.addColorStop(0, 'rgba(255,255,255,.95)'); rg.addColorStop(1, 'rgba(94,240,255,0)');
+    ctx.fillStyle = rg; ctx.fillRect(t.x - r, t.y - r, r * 2, r * 2);
+  }
+}
+
+function drawEnemy(e) {
+  const sz = 54 * S, sc = easeOutBack(Math.min(1, e.age / 0.35));
+  const isT = G.target === e, danger = e.y > lineY() - 150 * S;
+  ctx.save(); ctx.translate(e.x, e.y); ctx.scale(sc, sc); ctx.rotate(Math.sin(e.age * 2 + e.phase) * 0.12);
+  ctx.shadowColor = e.color; ctx.shadowBlur = 24;
+  ctx.font = `${sz}px ${EMOJI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(e.emoji, 0, 0);
+  ctx.restore();
+  if (isT) {
+    ctx.save(); ctx.strokeStyle = '#5ef0ff'; ctx.lineWidth = 3; ctx.setLineDash([9, 9]); ctx.lineDashOffset = -clock * 50;
+    ctx.shadowColor = '#5ef0ff'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(e.x, e.y, sz * 0.78, 0, 6.283); ctx.stroke(); ctx.restore();
+  }
+  const fs = Math.round(26 * S), lh = fs + 16 * S;
+  const lx = e.x + Math.sin(clock * 70) * 5 * (e.shake / 0.3), ly = e.y + sz * 0.58;
+  ctx.font = labelFont();
+  ctx.fillStyle = 'rgba(8,12,36,.82)';
+  rr(lx - e.w / 2, ly, e.w, lh, lh / 2); ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = isT ? '#5ef0ff' : danger ? `rgba(255,77,109,${0.6 + 0.4 * Math.sin(clock * 10)})` : 'rgba(255,255,255,.35)';
+  ctx.stroke();
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const x0 = lx - e.tw / 2, ty = ly + lh / 2 + 1, done = e.word.slice(0, e.typed);
+  const dw = ctx.measureText(done).width;
+  ctx.fillStyle = '#6bff9e'; ctx.fillText(done, x0, ty);
+  ctx.fillStyle = '#ffffff'; ctx.fillText(e.word.slice(e.typed), x0 + dw, ty);
+}
+
+function draw() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  fx.drawBg(ctx, W, H, clock);
+  ctx.save();
+  if (fx.shake > 0) ctx.translate((Math.random() - 0.5) * fx.shake * 2, (Math.random() - 0.5) * fx.shake * 2);
+  drawGround();
+  [...G.enemies].sort((a, b) => a.y - b.y).forEach(drawEnemy);
+  drawCannon();
+  fx.drawFg(ctx);
+  if (G.running && !G.paused && G.grace > 0) {
+    ctx.globalAlpha = Math.min(1, G.grace * 1.5); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `800 ${Math.round(48 * S)}px ${FONT}`; ctx.fillStyle = '#fff'; ctx.shadowColor = '#5ef0ff'; ctx.shadowBlur = 20;
+    ctx.fillText(ev.t('getReady'), W / 2, H * 0.4); ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+  if (fx.flash > 0) { ctx.fillStyle = `rgba(255,40,80,${fx.flash * 0.35})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// Advance the game by dt seconds (also used by automated tests).
+export function step(dt) { update(dt); draw(); ev.frame?.(G); }
+
+function frame(ts) {
+  const dt = Math.min(0.05, (ts - (lastTs || ts)) / 1000); lastTs = ts;
+  step(dt);
+  requestAnimationFrame(frame);
+}

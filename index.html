@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0b1026">
+<title>Word Shooter</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="update" role="status" hidden>
+  <span data-i18n="updateAvailable"></span>
+  <button id="updateBtn" data-i18n="update"></button>
+</div>
+
+<canvas id="c"></canvas>
+<input id="kb" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Type here">
+
+<div id="hud" hidden>
+  <div id="lives" aria-label="Lives"></div>
+  <div id="mid">
+    <div id="hudMinute"></div>
+    <div id="timebar"><i id="timefill"></i></div>
+  </div>
+  <div id="right">
+    <div><small data-i18n="score"></small> <b id="score">0</b></div>
+    <div><small data-i18n="wpm"></small> <b id="liveWpm">-</b></div>
+    <button id="pauseBtn" data-i18n="pause"></button>
+  </div>
+  <div id="combo" hidden></div>
+</div>
+
+<div id="overlay">
+  <section class="panel" id="p-start">
+    <h1>Word Shooter</h1>
+    <p class="tag" data-i18n="tagline"></p>
+    <p class="how" data-i18n="howTo"></p>
+    <div class="row"><span data-i18n="speed"></span>
+      <div class="seg" id="speedSeg">
+        <button data-speed="slow" data-i18n="slow"></button>
+        <button data-speed="normal" data-i18n="normal"></button>
+        <button data-speed="fast" data-i18n="fast"></button>
+      </div>
+    </div>
+    <div class="row"><button id="soundBtn" class="toggle"></button><button id="accBtn" class="toggle"></button></div>
+    <button id="play" class="big" data-i18n="play"></button>
+    <p id="best" class="small"></p>
+    <p class="small"><a id="support" href="https://paypal.me/neckfors" target="_blank" rel="noopener">&#9829; <span data-i18n="support"></span></a></p>
+    <p id="ver" class="small"></p>
+  </section>
+
+  <section class="panel" id="p-minute" hidden>
+    <h2 id="mTitle"></h2>
+    <div class="bigNum"><span id="mWpm"></span><small data-i18n="wpm"></small></div>
+    <p id="mPraise" class="praise"></p>
+    <div class="grid3">
+      <div><b id="mAcc"></b><small data-i18n="accuracy"></small></div>
+      <div><b id="mWords"></b><small data-i18n="words"></small></div>
+      <div><b id="mCombo"></b><small data-i18n="bestCombo"></small></div>
+    </div>
+    <p class="small" data-i18n="faster"></p>
+    <button id="continue" class="big" data-i18n="continue"></button>
+  </section>
+
+  <section class="panel" id="p-paused" hidden>
+    <h2 data-i18n="paused"></h2>
+    <button id="resume" class="big" data-i18n="resume"></button>
+    <button id="quit" class="ghost" data-i18n="quit"></button>
+  </section>
+
+  <section class="panel" id="p-over" hidden>
+    <h2 data-i18n="gameOver"></h2>
+    <p id="oNew" class="praise" hidden data-i18n="newBest"></p>
+    <div class="bigNum"><span id="oScore"></span><small data-i18n="score"></small></div>
+    <div class="grid3">
+      <div><b id="oWpm"></b><small data-i18n="wpm"></small></div>
+      <div><b id="oWords"></b><small data-i18n="words"></small></div>
+      <div><b id="oCombo"></b><small data-i18n="bestCombo"></small></div>
+    </div>
+    <button id="again" class="big" data-i18n="playAgain"></button>
+  </section>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
