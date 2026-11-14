@@ -1,5 +1,5 @@
 // Bump VERSION on every release. A new version waits until the user taps "Update" in the app.
-const VERSION = '1.4.0';
+const VERSION = '1.4.1';
 const CACHE = 'word-shooter-' + VERSION;
 const FILES = [
   './', 'index.html', 'css/style.css',

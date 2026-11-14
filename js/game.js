@@ -54,7 +54,9 @@ export function start() {
   G = fresh(); G.running = true; G.grace = 1.2; sfx.go(); ev.hud?.(G);
 }
 export function pause() { if (G.running && !G.paused) { G.paused = true; return true; } return false; }
-export function resume() { G.paused = false; G.grace = 1.2; G.clockOn = false; sfx.go(); }
+export function resume() {
+  for (const e of G.enemies) if (e.typed) { e.typed = 0; e.bad = false; e.badCh = ''; } // start the locked word fresh after a pause or level end
+  G.paused = false; G.grace = 1.2; G.clockOn = false; sfx.go(); }
 export function quit() { G.running = false; G.paused = false; G.enemies = []; G.target = null; }
 export function unlock() {
   // Backspace removes a wrong (red) character, otherwise the last correct one
