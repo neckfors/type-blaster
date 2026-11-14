@@ -17,7 +17,7 @@ let opts = { speed: 1, accents: false };
 const stat = () => ({ keys: 0, ok: 0, words: 0, best: 0 });
 const fresh = () => ({
   running: false, paused: false, lives: MAX_LIVES, score: 0, combo: 0, bestCombo: 0,
-  time: 0, minute: 1, minTime: 0, enemies: [], target: null, spawnT: 0.4, grace: 0,
+  time: 0, minute: 1, minTime: 0, enemies: [], target: null, spawnT: 0.4, grace: 0, cps: 1, lastKill: 0,
   aim: 0, recoil: 0, recent: [], m: stat(), t: stat(),
 });
 let G = fresh();
@@ -90,8 +90,16 @@ function spawn() {
     if (d > bd) { bd = d; bx = x; }
   }
   G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: -40 * S, age: 0, phase: Math.random() * 6.28, amp, emoji: rand(MONSTERS), color: rand(COLORS), shake: 0 });
-  const interval = Math.max(1.8, 3.6 - 0.25 * (G.minute - 1)) / opts.speed;
-  G.spawnT = interval * (0.85 + Math.random() * 0.3);
+  G.spawnT = spawnGap() * (0.85 + Math.random() * 0.3);
+}
+
+// Pace follows the player: ~5 wpm and ~100 wpm both get a steady stream of targets.
+// G.cps is a moving average of characters killed per second.
+const MIN_ON = 2;
+const maxOnScreen = () => clamp(Math.round(2 + G.cps * 0.8), 2, 7);
+function spawnGap() {
+  const load = 0.8 * Math.pow(1.1, G.minute - 1) * opts.speed; // each minute asks a bit more
+  return clamp(5 / (G.cps * load), 0.5, 4);
 }
 
 // ---------- input ----------
@@ -120,6 +128,7 @@ function kill(e) {
   fx.laser(tip.x, tip.y, e.x, e.y); G.recoil = 1;
   sfx.shoot(); sfx.boom();
   const len = e.word.length;
+  G.cps = clamp(0.6 * G.cps + 0.4 * (len + 1) / clamp(G.time - G.lastKill, 0.25, 12), 0.4, 12); G.lastKill = G.time;
   fx.burst(e.x, e.y, e.color, 36, 330); fx.burst(e.x, e.y, '#ffffff', 14, 210);
   fx.ring(e.x, e.y, e.color, 110 * S + len * 6);
   fx.shake = Math.max(fx.shake, 5 + len);
@@ -179,9 +188,8 @@ function update(dt) {
   for (const e of [...G.enemies]) if (G.running && e.y >= lineY()) hit(e);
   if (!G.running) return;
   G.spawnT -= dt;
-  const maxOn = Math.min(6, 3 + G.minute);
-  if (G.enemies.length === 0 && G.spawnT > 0.35) G.spawnT = 0.35; // never leave the screen empty
-  if (G.spawnT <= 0 && G.enemies.length < maxOn) spawn();
+  if (G.enemies.length < MIN_ON && G.spawnT > 0.35) G.spawnT = 0.35; // always something to shoot at
+  if (G.spawnT <= 0 && G.enemies.length < maxOnScreen()) spawn();
   if (G.minTime >= MINUTE) endMinute();
 }
 
