@@ -4,6 +4,8 @@ A typing game for kids (made for a 12 year old). Monsters fall from the sky, eac
 
 The interface is in English, the falling words are Swedish.
 
+Play online: https://neckfors.github.io/word-shooter/
+
 ## How to play
 - Type the word under a monster. The first letter you type locks on to that monster, and the cannon turns towards it.
 - A wrong letter only shakes the word and breaks your combo. Backspace unlocks the current monster.
