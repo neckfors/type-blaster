@@ -15,6 +15,8 @@ Play online: https://neckfors.github.io/word-shooter/
 - **Multiplication mode** (pick it on the start screen, tables 2-9 always): the lowest monster is locked on automatically and shows a problem like `7 × 8`. Type the answer digits. A wrong digit turns red and blocks input until Backspace. There is no WPM; the HUD and minute pause show problems solved instead.
 - **Progress grid** (multiplication mode): an 8x8 grid coloured from green (you know it) towards red (needs practice), based on your last 10 tries of each problem (7x8 and 8x7 count as one fact). Problems you struggle with come up more often. Progress is stored only in your browser.
 - Settings: Slow / Normal / Fast speed, sound on/off, and "Accents optional" (type a instead of å or ä, o instead of ö).
+- **Targeting:** the locked monster is bigger, has a pulsing ring and arrows around its label, and a dotted aim line runs from the cannon. The other monsters are dimmed.
+- **Players:** pick or create a player (name only, no password) on the start screen. Each player keeps their own settings, best scores and multiplication grid in this browser. **Guest** saves nothing. The first player created adopts progress saved before players existed.
 - Esc pauses. Works with a keyboard, and with the on-screen keyboard on phones and tablets.
 
 ## Run locally
@@ -37,7 +39,7 @@ Interface text and word lists are separate from the code.
 Bump `VERSION` in `sw.js` for every release. Installed apps download the new version in the background, then show a "New version available" bar with an Update button. The version is shown at the bottom of the start screen.
 
 ## Files
-- `js/game.js` game logic and drawing, `js/mathstats.js` multiplication history and grid colours, `js/fx.js` particles and starfield, `js/audio.js` synthesised sounds (no audio files), `js/main.js` menus, HUD, input and updates, `js/i18n.js` languages.
+- `js/game.js` game logic and drawing, `js/players.js` local players and per-player storage, `js/mathstats.js` multiplication history and grid colours, `js/fx.js` particles and starfield, `js/audio.js` synthesised sounds (no audio files), `js/main.js` menus, HUD, input and updates, `js/i18n.js` languages.
 
 ## Support
 If you like the app, you can support the author on [PayPal](https://paypal.me/neckfors). Thank you!

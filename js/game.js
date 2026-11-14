@@ -289,7 +289,21 @@ function drawCannon() {
 }
 
 function drawEnemy(e) {
-  const sz = 54 * S, sc = easeOutBack(Math.min(1, e.age / 0.35));
+  ctx.save(); ctx.globalAlpha = G.target && G.target !== e ? 0.5 : 1; // dim everything except the locked monster
+  drawEnemy0(e);
+  ctx.restore();
+}
+
+function drawAimLine() {
+  const e = G.target; if (!e || G.paused) return;
+  const t = cannonTip();
+  ctx.save(); ctx.strokeStyle = 'rgba(94,240,255,.55)'; ctx.lineWidth = 2; ctx.setLineDash([4, 10]); ctx.lineDashOffset = -clock * 60;
+  ctx.shadowColor = '#5ef0ff'; ctx.shadowBlur = 8;
+  ctx.beginPath(); ctx.moveTo(t.x, t.y); ctx.lineTo(e.x, e.y); ctx.stroke(); ctx.restore();
+}
+
+function drawEnemy0(e) {
+  const sz = 54 * S * (G.target === e ? 1.15 : 1), sc = easeOutBack(Math.min(1, e.age / 0.35));
   const isT = G.target === e, danger = e.y > lineY() - 150 * S;
   ctx.save(); ctx.translate(e.x, e.y); ctx.scale(sc, sc); ctx.rotate(Math.sin(e.age * 2 + e.phase) * 0.12);
   ctx.shadowColor = e.color; ctx.shadowBlur = 24;
@@ -297,9 +311,9 @@ function drawEnemy(e) {
   ctx.fillText(e.emoji, 0, 0);
   ctx.restore();
   if (isT) {
-    ctx.save(); ctx.strokeStyle = '#5ef0ff'; ctx.lineWidth = 3; ctx.setLineDash([9, 9]); ctx.lineDashOffset = -clock * 50;
+    ctx.save(); ctx.strokeStyle = '#5ef0ff'; ctx.lineWidth = 4; ctx.setLineDash([9, 9]); ctx.lineDashOffset = -clock * 50;
     ctx.shadowColor = '#5ef0ff'; ctx.shadowBlur = 12;
-    ctx.beginPath(); ctx.arc(e.x, e.y, sz * 0.78, 0, 6.283); ctx.stroke(); ctx.restore();
+    ctx.beginPath(); ctx.arc(e.x, e.y, sz * 0.78 + Math.sin(clock * 8) * 2 * S, 0, 6.283); ctx.stroke(); ctx.restore();
   }
   const fs = Math.round(26 * S), lh = fs + 16 * S;
   const lx = e.x + Math.sin(clock * 70) * 5 * (e.shake / 0.3), ly = e.y + sz * 0.58;
@@ -309,6 +323,12 @@ function drawEnemy(e) {
   ctx.lineWidth = 2;
   ctx.strokeStyle = isT ? '#5ef0ff' : danger ? `rgba(255,77,109,${0.6 + 0.4 * Math.sin(clock * 10)})` : 'rgba(255,255,255,.35)';
   ctx.stroke();
+  if (isT) { // arrows beside the locked label
+    const ah = 7 * S, pulse = Math.sin(clock * 8) * 3 * S, my = ly + lh / 2, L = lx - e.w / 2, R = lx + e.w / 2;
+    ctx.fillStyle = '#5ef0ff';
+    ctx.beginPath(); ctx.moveTo(L - 8 * S + pulse, my - ah); ctx.lineTo(L - 8 * S + pulse, my + ah); ctx.lineTo(L + 2 * S + pulse, my); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(R + 8 * S - pulse, my - ah); ctx.lineTo(R + 8 * S - pulse, my + ah); ctx.lineTo(R - 2 * S - pulse, my); ctx.fill();
+  }
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   const x0 = lx - e.tw / 2, ty = ly + lh / 2 + 1, done = e.word.slice(0, e.typed);
   if (e.ans) { // multiplication: question in white, typed digits green, a wrong digit red
@@ -335,6 +355,7 @@ function draw() {
   ctx.save();
   if (fx.shake > 0) ctx.translate((Math.random() - 0.5) * fx.shake * 2, (Math.random() - 0.5) * fx.shake * 2);
   drawGround();
+  drawAimLine();
   [...G.enemies].sort((a, b) => a.y - b.y).forEach(drawEnemy);
   drawCannon();
   fx.drawFg(ctx);

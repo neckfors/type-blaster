@@ -1,8 +1,11 @@
 // Remembers how each multiplication fact (2-9) went in the last 10 tries. 7x8 and 8x7 count as the same fact.
-const KEY = 'wordshooter.mathHist';
+let KEY = null; // null = guest: history lives in memory only
 let hist = {};
-try { hist = JSON.parse(localStorage.getItem(KEY)) || {}; } catch { hist = {}; }
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(hist)); } catch { /* storage unavailable */ } };
+export function load(storageKey) {
+  KEY = storageKey; hist = {};
+  if (KEY) try { hist = JSON.parse(localStorage.getItem(KEY)) || {}; } catch { hist = {}; }
+}
+const save = () => { if (KEY) try { localStorage.setItem(KEY, JSON.stringify(hist)); } catch { /* storage unavailable */ } };
 const key = (a, b) => (a < b ? `${a}x${b}` : `${b}x${a}`);
 
 export const FACTS = [];

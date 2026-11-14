@@ -1,9 +1,9 @@
 // Bump VERSION on every release. A new version waits until the user taps "Update" in the app.
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const CACHE = 'word-shooter-' + VERSION;
 const FILES = [
   './', 'index.html', 'css/style.css',
-  'js/main.js', 'js/game.js', 'js/fx.js', 'js/mathstats.js', 'js/audio.js', 'js/i18n.js',
+  'js/main.js', 'js/game.js', 'js/fx.js', 'js/mathstats.js', 'js/players.js', 'js/audio.js', 'js/i18n.js',
   'lang/en.json', 'words/sv.json',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
 ];

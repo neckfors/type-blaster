@@ -5,12 +5,27 @@ import * as ms from './mathstats.js';
 import { initAudio, setSound, resumeAudio, sfx } from './audio.js';
 
 const $ = id => document.getElementById(id);
-const store = {
-  get(key, d) { try { const v = localStorage.getItem('wordshooter.' + key); return v == null ? d : JSON.parse(v); } catch { return d; } },
-  set(key, v) { try { localStorage.setItem('wordshooter.' + key, JSON.stringify(v)); } catch { /* storage unavailable */ } },
-};
+import * as pl from './players.js';
+const store = pl.store;
 const SPEEDS = { slow: 0.7, normal: 1, fast: 1.3 };
-const settings = { speed: store.get('speed', 'normal'), sound: store.get('sound', true), accents: store.get('accents', false), mode: store.get('mode', 'words') };
+const settings = {};
+function loadPlayer() {
+  ms.load(pl.mathKey());
+  Object.assign(settings, { speed: store.get('speed', 'normal'), sound: store.get('sound', true), accents: store.get('accents', false), mode: store.get('mode', 'words') });
+}
+loadPlayer();
+
+function renderPlayers() {
+  const sel = $('playerSel'), cur = pl.getCurrent();
+  sel.innerHTML = `<option value="">${t('guest')}</option>` + pl.list().map(n => `<option value="${n.replace(/"/g, '&quot;')}">${n.replace(/</g, '&lt;')}</option>`).join('') + `<option value="+">${t('newPlayer')}</option>`;
+  sel.value = cur; $('delPlayer').hidden = !cur;
+  $('guestNote').hidden = !!cur;
+}
+function switchPlayer(name) { pl.setCurrent(name); loadPlayer(); renderPlayers(); applySettings(); renderBest(); }
+function createPlayer() {
+  const n = pl.add(prompt(t('askName')) || '');
+  if (n) { loadPlayer(); renderPlayers(); applySettings(); renderBest(); } else renderPlayers();
+}
 const kb = $('kb');
 let panel = 'start';
 
@@ -131,6 +146,8 @@ $('gridBtn').onclick = showGrid; $('gridBtn2').onclick = showGrid; $('gridBack')
 document.querySelectorAll('#modeSeg button').forEach(b => {
   b.onclick = () => { settings.mode = b.dataset.mode; store.set('mode', settings.mode); applySettings(); renderBest(); };
 });
+$('playerSel').onchange = e => { if (e.target.value === '+') createPlayer(); else switchPlayer(e.target.value); };
+$('delPlayer').onclick = () => { const n = pl.getCurrent(); if (n && confirm(t('confirmDel', { n }))) { pl.remove(n); switchPlayer(''); } };
 $('play').onclick = play;
 $('again').onclick = play;
 $('continue').onclick = () => { show(null); game.resume(); };
@@ -182,6 +199,6 @@ async function setupSW() {
   await loadI18n();
   const words = await loadWords();
   game.init($('c'), words, events);
-  applySettings(); renderBest(); show('start');
+  renderPlayers(); applySettings(); renderBest(); show('start');
   setupSW().catch(() => {});
 })();
