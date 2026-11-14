@@ -72,7 +72,7 @@ const events = {
     $('mTitle').textContent = t('minuteDone', { n: s.minute });
     $('mWpm').textContent = math ? s.words : s.wpm; $('mWpm').nextElementSibling.textContent = t(math ? 'solved' : 'wpm');
     const praise = t(math ? 'praiseMath' : 'praise');
-    $('mPraise').textContent = praise[math ? (s.words >= 12 ? 2 : s.words >= 6 ? 1 : 0) : (s.wpm >= 20 ? 2 : s.wpm >= 10 ? 1 : 0)];
+    $('mPraise').textContent = praise[math ? (s.words >= 12 ? 2 : s.words >= 6 ? 1 : 0) : (s.wpm >= 30 ? 2 : s.wpm >= 15 ? 1 : 0)];
     $('mAcc').textContent = s.accuracy + '%'; $('mCombo').textContent = s.bestCombo;
     $('mWords').textContent = math ? `${ms.mastered()}/${ms.FACTS.length}` : s.words;
     $('mWords').nextElementSibling.textContent = t(math ? 'mastered' : 'words');

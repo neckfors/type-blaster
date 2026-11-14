@@ -18,7 +18,7 @@ let opts = { speed: 1, accents: false, mode: 'words' };
 const stat = () => ({ keys: 0, ok: 0, words: 0, best: 0 });
 const fresh = () => ({
   mode: opts.mode, running: false, paused: false, lives: MAX_LIVES, score: 0, combo: 0, bestCombo: 0,
-  time: 0, minute: 1, minTime: 0, enemies: [], target: null, spawnT: 0.4, grace: 0, cps: 1, lastKill: 0, clockOn: false, typeTime: 0,
+  time: 0, minute: 1, minTime: 0, enemies: [], target: null, spawnT: 0.4, spawned: 0, grace: 0, cps: 1.6, lastKill: 0, clockOn: false, typeTime: 0,
   aim: 0, recoil: 0, recent: [], m: stat(), t: stat(),
 });
 let G = fresh();
@@ -102,7 +102,7 @@ function spawn() {
   }
   ctx.font = labelFont();
   const tw = ctx.measureText(label || word).width, w = tw + 28 * S;
-  const amp = 14 * S, band = Math.min(W, 640 * S + 40), mid = W / 2; // keep monsters near the middle
+  const amp = 10 * S, band = Math.min(W, 420 * S + 40), mid = W / 2; // keep monsters near the middle
   const lo = Math.max(w / 2 + amp + 10, mid - band / 2 + w / 2), hi = Math.min(W - w / 2 - amp - 10, mid + band / 2 - w / 2);
   let bx = W / 2, bd = -1;
   for (let i = 0; i < 8; i++) { // pick the spot furthest from the monsters near the top
@@ -112,12 +112,12 @@ function spawn() {
     if (d > bd) { bd = d; bx = x; }
   }
   G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: -40 * S, age: 0, phase: Math.random() * 6.28, amp, emoji: rand(MONSTERS), color: rand(COLORS), shake: 0, bad: false, ...extra });
-  G.spawnT = spawnGap() * (0.85 + Math.random() * 0.3);
+  G.spawned++; G.spawnT = spawnGap() * (0.85 + Math.random() * 0.3) * (G.spawned <= 4 ? 0.45 : 1.15); // quick start, then a calmer stream
 }
 
 // Pace follows the player: ~5 wpm and ~100 wpm both get a steady stream of targets.
 // G.cps is a moving average of characters killed per second.
-const MIN_ON = 2;
+const MIN_ON = 3;
 const maxOnScreen = () => clamp(Math.round(2 + G.cps * 0.8), 2, 7);
 function spawnGap() {
   const load = 0.8 * Math.pow(1.1, G.minute - 1) * opts.speed; // each minute asks a bit more
@@ -223,7 +223,7 @@ function update(dt) {
   if (G.grace > 0) { G.grace -= dt; return; }
   G.time += dt;
   if (G.clockOn) { G.minTime += dt; G.typeTime += dt; }
-  const v = (lineY() + 40 * S) * 0.058 * Math.pow(1.1, G.minute - 1) * opts.speed; // ~17s top to bottom at start
+  const v = (lineY() + 40 * S) * 0.048 * Math.pow(1.1, G.minute - 1) * opts.speed; // ~21s top to bottom at start
   for (const e of G.enemies) { e.age += dt; e.y += v * dt; e.x = e.baseX + Math.sin(e.age * 1.6 + e.phase) * e.amp; }
   for (const e of [...G.enemies]) if (G.running && e.y >= lineY()) hit(e);
   if (!G.running) return;
