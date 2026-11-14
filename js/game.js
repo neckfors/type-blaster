@@ -199,7 +199,7 @@ function hit(e) {
 
 function endMinute() {
   const m = G.m, mins = MINUTE / 60;
-  const s = { mode: G.mode, minute: G.minute, wpm: Math.round(m.ok / 5 / mins), accuracy: m.keys ? Math.round(m.ok / m.keys * 100) : 100, words: m.words, bestCombo: m.best };
+  const s = { mode: G.mode, minute: G.minute, wpm: Math.round((m.ok + m.words) / 5 / mins), accuracy: m.keys ? Math.round(m.ok / m.keys * 100) : 100, words: m.words, bestCombo: m.best };
   G.paused = true; G.minute++; G.minTime = 0; G.m = stat(); G.m.best = G.combo;
   ev.minuteDone(s); ev.hud?.(G);
 }
@@ -207,7 +207,7 @@ function endMinute() {
 function gameOver() {
   G.running = false; sfx.over();
   const mins = G.typeTime / 60;
-  ev.over({ mode: G.mode, score: G.score, wpm: mins > 0.08 ? Math.round(G.t.ok / 5 / mins) : 0, words: G.t.words, bestCombo: G.bestCombo, minutes: G.minute - 1 });
+  ev.over({ mode: G.mode, score: G.score, wpm: mins > 0.08 ? Math.round((G.t.ok + G.t.words) / 5 / mins) : 0, words: G.t.words, bestCombo: G.bestCombo, minutes: G.minute - 1 });
 }
 
 // ---------- update ----------
