@@ -8,7 +8,7 @@ Play online: https://neckfors.github.io/word-shooter/
 
 ## How to play
 - Type the word under a monster. The first letter you type locks on to that monster, and the cannon turns towards it.
-- A wrong letter only shakes the word and breaks your combo. Backspace unlocks the current monster.
+- A wrong letter turns red and blocks input until you press Backspace (it also breaks your combo). Backspace with no red letter lets go of the current monster. Monsters stay near the middle of the screen. The minute clock starts when you type the first letter.
 - A monster that reaches the pink line costs one heart (5 hearts). Every 10 words in a row gives a heart back.
 - After every minute the game pauses and shows your speed in words per minute (WPM) and accuracy. The next minute is a little faster, and the words get a bit longer.
 - The pace follows you: the faster you type, the faster and more monsters come, so 5 wpm and 100 wpm both get a steady, fair game. There is always something to shoot at. Each minute asks a bit more of you.
