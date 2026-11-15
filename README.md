@@ -1,10 +1,10 @@
-# Word Shooter
+# Type Blaster
 
-A typing game for kids (made for a 12 year old). Monsters fall from the sky, each carrying a word. Type the word, then press SPACE to shoot it down before it reaches the line. Installable as an app (PWA) and works offline.
+A typing game for kids (made for a 12 year old). Monsters fall from the sky, each carrying a word. Type the word, then press SPACE to shoot it down before it reaches the line. It can be installed on a phone and works offline.
 
 The interface is in English, the falling words are Swedish.
 
-Play online: https://neckfors.github.io/word-shooter/
+Play online: https://neckfors.github.io/type-blaster/
 
 ## How to play
 - The closest monster is always locked on (the cannon aims at it); type its word. The other monsters can't be typed until it is gone.

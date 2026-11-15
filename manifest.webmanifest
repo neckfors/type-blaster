@@ -1,6 +1,6 @@
 {
-  "name": "Word Shooter",
-  "short_name": "Word Shooter",
+  "name": "Type Blaster",
+  "short_name": "Type Blaster",
   "description": "Type the words to shoot down the monsters.",
   "start_url": "./",
   "scope": "./",
