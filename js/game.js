@@ -2,6 +2,7 @@
 import { sfx } from './audio.js';
 import { FX } from './fx.js';
 import * as ms from './mathstats.js';
+import { pickQuestion, answerOf, SYM, defaultCfg } from './mathset.js';
 
 const params = new URLSearchParams(location.search);
 export const MINUTE = Number(params.get('minute')) || 60; // seconds per round (?minute=10 for testing)
@@ -14,7 +15,7 @@ const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans
 const fx = new FX();
 let canvas, ctx, words, ev = {};
 let W = 0, H = 0, S = 1, dpr = 1, clock = 0, lastTs = 0;
-let opts = { speed: 1, accents: false, mode: 'words' };
+let opts = { speed: 1, accents: false, mode: 'words', mathCfg: defaultCfg() };
 const stat = () => ({ keys: 0, ok: 0, words: 0, best: 0, cw: 0 });
 const fresh = () => ({
   mode: opts.mode, running: false, paused: false, lives: MAX_LIVES, score: 0, combo: 0, bestCombo: 0,
@@ -82,22 +83,24 @@ function pickWord() {
   return w;
 }
 
+const rec = (e, ok) => { if (e.op === 'x') ms.record(e.a, e.b, ok); }; // only times tables are tracked
 function pickMath() {
   const onScreen = new Set(G.enemies.map(e => e.word));
-  let c = ms.FACTS.filter(([a, b]) => !G.recent.includes(a + 'x' + b) && !onScreen.has(a + '×' + b) && !onScreen.has(b + '×' + a));
-  if (!c.length) c = ms.FACTS;
-  let n = Math.random() * c.reduce((t, [a, b]) => t + ms.weight(a, b), 0), f = c[c.length - 1];
-  for (const x of c) { n -= ms.weight(x[0], x[1]); if (n <= 0) { f = x; break; } }
-  G.recent.push(f[0] + 'x' + f[1]); if (G.recent.length > 6) G.recent.shift();
-  return Math.random() < 0.5 ? f : [f[1], f[0]];
+  const id = q => (q.op === 'x' && q.a > q.b ? `${q.b}x${q.a}` : `${q.a}${q.op}${q.b}`);
+  let q, tries = 0;
+  do { q = pickQuestion(opts.mathCfg, ms.weight, null); tries++; }
+  while (tries < 12 && (G.recent.includes(id(q)) || onScreen.has(q.a + SYM[q.op] + q.b) || onScreen.has(q.b + SYM[q.op] + q.a)));
+  G.recent.push(id(q)); if (G.recent.length > 6) G.recent.shift();
+  if (q.op === 'x' && Math.random() < 0.5) [q.a, q.b] = [q.b, q.a];
+  return q;
 }
 
 function spawn() {
   let word, extra = {}, label;
   if (G.mode === 'math') {
-    const [a, b] = pickMath();
-    word = a + '×' + b; label = `${a} × ${b} = 00`;
-    extra = { a, b, ans: String(a * b), failed: false, badCh: '' };
+    const q = pickMath(), ans = String(answerOf(q));
+    word = q.a + SYM[q.op] + q.b; label = `${q.a} ${SYM[q.op]} ${q.b} = ${'0'.repeat(ans.length)}`;
+    extra = { a: q.a, b: q.b, op: q.op, ans, failed: false, badCh: '' };
   } else {
     word = pickWord();
     if (!word) { G.spawnT = 0.3; return; }
@@ -158,7 +161,7 @@ function handleMath(ch) {
   G.clockOn = true; G.m.keys++; G.t.keys++;
   if (e.ans[e.typed] !== ch) {
     sfx.wrong(); e.shake = 0.3; e.bad = true; e.badCh = ch; G.combo = 0;
-    if (!e.failed) { e.failed = true; ms.record(e.a, e.b, false); }
+    if (!e.failed) { e.failed = true; rec(e, false); }
     ev.hud?.(G); return;
   }
   e.typed++; G.m.ok++; G.t.ok++;
@@ -168,7 +171,7 @@ function handleMath(ch) {
 }
 
 function kill(e) {
-  if (e.ans && !e.failed) ms.record(e.a, e.b, true);
+  if (e.ans && !e.failed) rec(e, true);
   const tip = cannonTip();
   fx.laser(tip.x, tip.y, e.x, e.y); G.recoil = 1;
   sfx.shoot(); sfx.boom();
@@ -195,7 +198,7 @@ function kill(e) {
 }
 
 function hit(e) {
-  if (e.ans && !e.failed) ms.record(e.a, e.b, false);
+  if (e.ans && !e.failed) rec(e, false);
   G.lives--; G.combo = 0;
   fx.burst(e.x, lineY(), '#ff4d6d', 40, 300); fx.ring(e.x, lineY(), '#ff4d6d', 150);
   fx.shake = 14; fx.flash = 1; sfx.hit();
@@ -330,9 +333,12 @@ function drawEnemy0(e) {
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   const x0 = lx - e.tw / 2, ty = ly + lh / 2 + 1, done = e.word.slice(0, e.typed);
   if (e.ans) { // multiplication: question in white, typed digits green, a wrong digit red
-    const q = `${e.a} × ${e.b} = `;
-    ctx.fillStyle = '#ffffff'; ctx.fillText(q, x0, ty);
-    let x = x0 + ctx.measureText(q).width; const d = e.ans.slice(0, e.typed);
+    const q1 = `${e.a} `, q2 = ` ${e.b} = `;
+    ctx.fillStyle = '#ffffff'; ctx.fillText(q1, x0, ty);
+    let x = x0 + ctx.measureText(q1).width;
+    ctx.fillStyle = e.op === 'x' ? '#ffb347' : '#5ef0ff'; ctx.fillText(SYM[e.op], x, ty); x += ctx.measureText(SYM[e.op]).width;
+    ctx.fillStyle = '#ffffff'; ctx.fillText(q2, x, ty); x += ctx.measureText(q2).width;
+    const d = e.ans.slice(0, e.typed);
     ctx.fillStyle = '#6bff9e'; ctx.fillText(d, x, ty); x += ctx.measureText(d).width;
     if (e.bad) { ctx.fillStyle = '#ff4d6d'; ctx.fillText(e.badCh, x, ty); }
     else if (e.typed < e.ans.length) { ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.fillText('?', x, ty); }

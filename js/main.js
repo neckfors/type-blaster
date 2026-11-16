@@ -2,6 +2,7 @@
 import { loadI18n, t, loadWords } from './i18n.js';
 import * as game from './game.js';
 import * as ms from './mathstats.js';
+import { fixCfg, renderSettings, MUL_NUMS } from './mathset.js';
 import { initAudio, setSound, resumeAudio, sfx } from './audio.js';
 
 const $ = id => document.getElementById(id);
@@ -11,7 +12,7 @@ const SPEEDS = { slow: 0.7, normal: 1, fast: 1.3 };
 const settings = {};
 function loadPlayer() {
   ms.load(pl.mathKey());
-  Object.assign(settings, { speed: store.get('speed', 'normal'), sound: store.get('sound', true), accents: store.get('accents', false), mode: store.get('mode', 'words') });
+  Object.assign(settings, { speed: store.get('speed', 'normal'), sound: store.get('sound', true), accents: store.get('accents', false), mode: store.get('mode', 'words'), mathCfg: fixCfg(store.get('mathCfg', null)) });
 }
 loadPlayer();
 
@@ -48,7 +49,9 @@ function applySettings() {
   $('tag').textContent = t(math ? 'taglineMath' : 'tagline'); $('how').textContent = t(math ? 'howToMath' : 'howTo');
   $('hudLbl').textContent = t(math ? 'solved' : 'wpm');
   setSound(settings.sound);
-  game.configure({ speed: SPEEDS[settings.speed], accents: settings.accents, mode: settings.mode });
+  $('mathSet').hidden = !math;
+  if (math) renderSettings($('mathSet'), settings.mathCfg, cfg => { store.set('mathCfg', cfg); game.configure({ mathCfg: cfg }); });
+  game.configure({ speed: SPEEDS[settings.speed], accents: settings.accents, mode: settings.mode, mathCfg: settings.mathCfg });
 }
 
 function renderBest() {
@@ -136,10 +139,10 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && !pa
 let gridFrom = 'start';
 function showGrid() {
   gridFrom = panel;
-  let h = '<tr><th></th>' + [2, 3, 4, 5, 6, 7, 8, 9].map(n => `<th>${n}</th>`).join('') + '</tr>';
-  for (let a = 2; a <= 9; a++) {
+  let h = '<tr><th></th>' + MUL_NUMS.map(n => `<th>${n}</th>`).join('') + '</tr>';
+  for (const a of MUL_NUMS) {
     h += `<tr><th>${a}</th>`;
-    for (let b = 2; b <= 9; b++) h += `<td style="background:${ms.color(a, b)}">${a * b}</td>`;
+    for (const b of MUL_NUMS) h += `<td style="background:${ms.color(a, b)}">${a * b}</td>`;
     h += '</tr>';
   }
   $('gridTable').innerHTML = h; show('grid');

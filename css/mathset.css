@@ -1,0 +1,26 @@
+/* Settings card for choosing questions. Shared by Math Clicker and Type Blaster (keep both copies identical). */
+.ms { --mul: #ffb347; --add: #5ef0ff; --line: #ffffff40; text-align: left; }
+.ms button { font: inherit; color: inherit; background: none; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.ms-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+.ms-seg button { padding: 10px 2px; font-size: 14px; font-weight: 700; line-height: 1.2; }
+.ms-seg button.on { background: #fff; color: #0b1030; border-color: #fff; }
+.ms-sec { border: 2px solid; border-radius: 14px; padding: 10px; margin-bottom: 8px; }
+.ms-m { border-color: var(--mul); background: #ffb34714; }
+.ms-a { border-color: var(--add); background: #5ef0ff14; }
+.ms-sec h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 14px; }
+.ms-badge { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; color: #0b1030; font-style: normal; font-weight: 900; }
+.ms-m .ms-badge { background: var(--mul); }
+.ms-a .ms-badge { background: var(--add); }
+.ms-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.ms-chip { padding: 10px 0; font-weight: 700; }
+.ms-m .ms-chip.on { background: var(--mul); color: #0b1030; border-color: var(--mul); }
+.ms-quick { display: flex; margin-top: 8px; }
+.ms-quick button { flex: 1; padding: 8px 0; font-size: 12px; opacity: .85; }
+.ms-opt { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; padding: 10px; margin-bottom: 6px; font-size: 13px; text-align: left; }
+.ms-opt:last-child { margin-bottom: 0; }
+.ms-opt b { white-space: nowrap; }
+.ms-a .ms-opt.on { background: var(--add); color: #0b1030; border-color: var(--add); }
+
+/* Colour of the operator in questions: orange x, cyan + */
+.op-x { color: #ffb347; }
+.op-add { color: #5ef0ff; }

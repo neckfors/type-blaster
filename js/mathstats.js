@@ -1,4 +1,4 @@
-// Remembers how each multiplication fact (2-9) went in the last 10 tries. 7x8 and 8x7 count as the same fact.
+// Remembers how each multiplication fact (0-9) went in the last 10 tries. 7x8 and 8x7 count as the same fact.
 let KEY = null; // null = guest: history lives in memory only
 let hist = {};
 export function load(storageKey) {
@@ -9,7 +9,7 @@ const save = () => { if (KEY) try { localStorage.setItem(KEY, JSON.stringify(his
 const key = (a, b) => (a < b ? `${a}x${b}` : `${b}x${a}`);
 
 export const FACTS = [];
-for (let a = 2; a <= 9; a++) for (let b = a; b <= 9; b++) FACTS.push([a, b]);
+for (let a = 0; a <= 9; a++) for (let b = a; b <= 9; b++) FACTS.push([a, b]);
 
 export function record(a, b, ok) {
   const h = hist[key(a, b)] || (hist[key(a, b)] = []);
