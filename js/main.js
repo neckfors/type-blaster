@@ -163,45 +163,10 @@ document.querySelectorAll('#speedSeg button').forEach(b => {
   b.onclick = () => { settings.speed = b.dataset.speed; store.set('speed', settings.speed); applySettings(); };
 });
 
-// ---------- service worker / updates ----------
-function swVersion(worker) {
-  return new Promise(res => {
-    const ch = new MessageChannel();
-    ch.port1.onmessage = e => res(e.data);
-    worker.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
-    setTimeout(() => res(null), 2000);
-  });
-}
-
-async function setupSW() {
-  if (!('serviceWorker' in navigator)) return;
-  const reg = await navigator.serviceWorker.register('sw.js');
-  let userAsked = false, reloading = false;
-  const showUpdate = w => {
-    $('update').hidden = false; document.body.classList.add('has-update');
-    $('updateBtn').onclick = () => { userAsked = true; w.postMessage({ type: 'SKIP_WAITING' }); };
-  };
-  if (reg.waiting && navigator.serviceWorker.controller) showUpdate(reg.waiting);
-  reg.addEventListener('updatefound', () => {
-    const w = reg.installing;
-    w?.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) showUpdate(w); });
-  });
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (userAsked && !reloading) { reloading = true; location.reload(); } // only after the user tapped Update
-  });
-  const check = () => reg.update().catch(() => {});
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
-  setInterval(check, 30 * 60 * 1000);
-  const ready = await navigator.serviceWorker.ready;
-  const v = ready.active && await swVersion(ready.active);
-  if (v) $('ver').textContent = t('about', { v });
-}
-
 // ---------- boot ----------
 (async function boot() {
   await loadI18n();
   const words = await loadWords();
   game.init($('c'), words, events);
   renderPlayers(); applySettings(); renderBest(); show('start');
-  setupSW().catch(() => {});
 })();

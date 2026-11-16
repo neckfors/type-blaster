@@ -1,6 +1,6 @@
 # Type Blaster
 
-A typing game for kids (made for a 12 year old). Monsters fall from the sky, each carrying a word. Type the word, then press SPACE to shoot it down before it reaches the line. It can be installed on a phone and works offline.
+A typing game for kids (made for a 12 year old). Monsters fall from the sky, each carrying a word. Type the word, then press SPACE to shoot it down before it reaches the line. It is not installable as an app; play it in the browser.
 
 The interface is in English, the falling words are Swedish.
 
@@ -35,13 +35,10 @@ Interface text and word lists are separate from the code.
 
 - UI text: copy `lang/en.json` to `lang/xx.json` and translate it.
 - Words: copy `words/sv.json` to `words/xx.json`. It has three lists: `easy` (short), `medium` and `hard`. Mix word classes (nouns, verbs, adjectives, adverbs, pronouns, prepositions, numbers). Avoid spaces in words. Read the whole list through for anything vulgar or embarrassing for a child (including look-alikes in English) before releasing.
-- Choose them with `?ui=xx&words=yy` (defaults are `en` and `sv`), and add the new files to `FILES` in `sw.js`.
-
-## Releases and updates
-Bump `VERSION` in `sw.js` for every release. Installed apps download the new version in the background, then show a "New version available" bar with an Update button. The version is shown at the bottom of the start screen.
+- Choose them with `?ui=xx&words=yy` (defaults are `en` and `sv`).
 
 ## Files
-- `js/game.js` game logic and drawing, `js/players.js` local players and per-player storage, `js/mathstats.js` multiplication history and grid colours, `js/fx.js` particles and starfield, `js/audio.js` synthesised sounds (no audio files), `js/main.js` menus, HUD, input and updates, `js/i18n.js` languages.
+- `js/game.js` game logic and drawing, `js/players.js` local players and per-player storage, `js/mathstats.js` multiplication history and grid colours, `js/fx.js` particles and starfield, `js/audio.js` synthesised sounds (no audio files), `js/main.js` menus, HUD, input, `js/i18n.js` languages.
 
 ## Support
 If you like the app, you can support the author on [PayPal](https://paypal.me/neckfors). Thank you!
