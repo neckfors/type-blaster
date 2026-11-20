@@ -42,86 +42,105 @@ const mirrorPath = (ctx, pts) => {
   for (const [x, y] of pts.slice(1, -1).reverse()) ctx.lineTo(-x, y);
   ctx.closePath();
 };
+const inset = (pts, k, cy) => pts.map(([x, y]) => [x * k, cy + (y - cy) * k]);
+const glow = (ctx, x, y, r, inner, outer) => { // soft additive light
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, inner); g.addColorStop(1, outer);
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill();
+};
 
-// Cartoon eyes that stare straight ahead (at the cannon): angry brows normally, worried brows once the player is typing at it.
-function eyes(ctx, cx, cy, gap, er, t, worried, px) {
-  const blink = Math.sin(t * 1.3) > 0.985 ? 0.15 : 1;
-  for (const sgn of [-1, 1]) {
-    const x = cx + sgn * gap;
-    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(x, cy, er, er * blink, 0, 0, 6.283); ctx.fill();
-    ctx.strokeStyle = 'rgba(8,12,36,.9)'; ctx.lineWidth = 1.6 * px; ctx.stroke();
-    if (blink > 0.5) {
-      ctx.fillStyle = '#0b1026'; ctx.beginPath(); ctx.arc(x, cy + er * (worried ? 0.1 : 0.38), er * (worried ? 0.42 : 0.5), 0, 6.283); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x - er * 0.12, cy + er * (worried ? 0 : 0.26), er * 0.15, 0, 6.283); ctx.fill();
-    }
-    // brows slope down towards the middle when angry, up when worried
-    const inY = cy - er * (worried ? 1.55 : 1.0), outY = cy - er * (worried ? 1.05 : 1.55);
-    ctx.strokeStyle = '#0b1026'; ctx.lineWidth = 3 * px; ctx.beginPath();
-    ctx.moveTo(x + sgn * er * 1.15, outY); ctx.lineTo(x - sgn * er * 0.9, inY); ctx.stroke();
-  }
-}
-
-// Draw one ship centred on the current origin; r is half its size in pixels, accent its glow colour, t seconds for animation.
-export function drawShip(ctx, kind, r, accent, t, worried = 0) {
+// Draw one ship centred on the current origin; r is half its size in pixels, accent its colour, t seconds for animation.
+// boost (0 or 1) makes the engines surge and the core flare, used while the player is typing at that ship.
+export function drawShip(ctx, kind, r, accent, t, boost = 0) {
   const h = HULLS[kind % HULLS.length];
   ctx.save(); ctx.scale(r, r); // canvas y points down, so the nose (+y) points down the screen
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  const px = 1 / r; // one screen pixel in ship units
-  const flick = 0.85 + 0.15 * Math.sin(t * 40 + kind) + 0.08 * Math.sin(t * 23);
+  const px = 1 / r, pulse = 0.5 + 0.5 * Math.sin(t * 5 + kind * 1.7), flick = 0.85 + 0.15 * Math.sin(t * 40 + kind) + 0.08 * Math.sin(t * 23);
+  const noses = (fn) => { for (const sgn of [-1, 1]) fn(sgn); };
 
-  // engine flames trail behind (up the screen)
+  // ---- engine plasma (additive, trails up the screen) ----
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (const ex of h.engines) for (const sgn of ex === 0 ? [1] : [-1, 1]) {
-    const fx = ex * sgn, fy = -0.82, len = (0.5 + 0.12 * Math.sin(t * 31 + ex * 9)) * flick, w = 0.1;
+    const fx = ex * sgn, fy = -0.84, len = (0.62 + 0.14 * Math.sin(t * 31 + ex * 9)) * flick * (1 + 0.7 * boost), w = 0.13 * (1 + 0.3 * boost);
+    glow(ctx, fx, fy, 0.3 * (1 + 0.4 * boost), 'rgba(255,255,255,.55)', 'rgba(0,0,0,0)');
     const g = ctx.createLinearGradient(0, fy, 0, fy - len);
-    g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(0.25, accent); g.addColorStop(1, 'rgba(255,120,60,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(fx - w, fy); ctx.lineTo(fx + w, fy); ctx.lineTo(fx, fy - len); ctx.closePath(); ctx.fill();
-  }
-
-  if (h.saucer) {
-    // lower disc
-    const disc = ctx.createLinearGradient(0, -0.5, 0, 0.5);
-    disc.addColorStop(0, '#9fb3d9'); disc.addColorStop(0.5, '#4c5e8f'); disc.addColorStop(1, '#232c52');
-    ctx.fillStyle = disc; ctx.beginPath(); ctx.ellipse(0, 0, 1, 0.62, 0, 0, 6.283); ctx.fill();
-    ctx.lineWidth = 3 * px; ctx.strokeStyle = accent; ctx.beginPath(); ctx.ellipse(0, 0, 1, 0.62, 0, 0, 6.283); ctx.stroke();
-    // lights around the rim
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * 6.283 + t * 1.5, on = Math.sin(a * 2 - t * 6) > 0;
-      ctx.fillStyle = on ? '#ffffff' : accent; ctx.globalAlpha = on ? 1 : 0.55;
-      ctx.beginPath(); ctx.arc(Math.cos(a) * 0.78, Math.sin(a) * 0.48, 0.055, 0, 6.283); ctx.fill();
-    }
+    g.addColorStop(0, accent); g.addColorStop(0.55, accent); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = 0.9; ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(fx - w, fy); ctx.quadraticCurveTo(fx - w * 0.5, fy - len * 0.5, fx, fy - len); ctx.quadraticCurveTo(fx + w * 0.5, fy - len * 0.5, fx + w, fy); ctx.closePath(); ctx.fill();
     ctx.globalAlpha = 1;
-    // dome
-    const dome = ctx.createRadialGradient(-0.1, -0.1, 0.02, 0, 0, 0.42);
-    dome.addColorStop(0, '#e6ffff'); dome.addColorStop(0.45, '#5ef0ff'); dome.addColorStop(1, '#1d6a86');
-    ctx.fillStyle = dome; ctx.beginPath(); ctx.ellipse(0, 0, 0.42, 0.32, 0, 0, 6.283); ctx.fill();
-    eyes(ctx, 0, 0.02, 0.17, 0.12, t, worried, px);
+    const c = ctx.createLinearGradient(0, fy, 0, fy - len * 0.6);
+    c.addColorStop(0, '#ffffff'); c.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(fx - w * 0.45, fy); ctx.lineTo(fx + w * 0.45, fy); ctx.lineTo(fx, fy - len * 0.6); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+
+  if (h.saucer) { // alien warship
+    const disc = ctx.createLinearGradient(0, -0.62, 0, 0.62);
+    disc.addColorStop(0, '#8f9fcf'); disc.addColorStop(0.45, '#3a4577'); disc.addColorStop(1, '#10163a');
+    ctx.fillStyle = disc; ctx.beginPath(); ctx.ellipse(0, 0, 1, 0.64, 0, 0, 6.283); ctx.fill();
+    ctx.lineWidth = 2.5 * px; ctx.strokeStyle = 'rgba(8,12,36,.9)'; ctx.stroke();
+    ctx.fillStyle = 'rgba(10,15,40,.55)'; ctx.beginPath(); ctx.ellipse(0, 0, 0.74, 0.45, 0, 0, 6.283); ctx.fill();
+    ctx.lineWidth = 4 * px; ctx.strokeStyle = accent; ctx.beginPath(); ctx.ellipse(0, 0, 0.9, 0.57, 0, 0, 6.283); ctx.stroke();
+    for (let i = 0; i < 10; i++) { // chasing lights around the rim
+      const a = (i / 10) * 6.283, on = Math.sin(a * 2 - t * 9) > 0.2;
+      ctx.fillStyle = on ? '#ffffff' : 'rgba(255,255,255,.18)';
+      ctx.beginPath(); ctx.arc(Math.cos(a) * 0.74, Math.sin(a) * 0.46, 0.05, 0, 6.283); ctx.fill();
+    }
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, 0, 0, 0.62 * (1 + 0.1 * pulse + 0.3 * boost), accent, 'rgba(0,0,0,0)'); ctx.restore();
+    const dome = ctx.createRadialGradient(-0.1, -0.12, 0.02, 0, 0, 0.42);
+    dome.addColorStop(0, 'rgba(255,255,255,.95)'); dome.addColorStop(0.35, 'rgba(150,240,255,.7)'); dome.addColorStop(1, 'rgba(20,50,90,.85)');
+    ctx.fillStyle = dome; ctx.beginPath(); ctx.ellipse(0, 0, 0.4, 0.3, 0, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2 * px; ctx.stroke();
     ctx.restore(); return;
   }
 
-  // hull
+  // ---- hull: gunmetal with a lit centre, dark outline ----
   const hull = ctx.createLinearGradient(-1, 0, 1, 0);
-  hull.addColorStop(0, '#26305c'); hull.addColorStop(0.32, '#7d8fbf'); hull.addColorStop(0.5, '#c9d6f5'); hull.addColorStop(0.68, '#7d8fbf'); hull.addColorStop(1, '#26305c');
+  hull.addColorStop(0, '#141a3d'); hull.addColorStop(0.3, '#46538a'); hull.addColorStop(0.5, '#a9b8e6'); hull.addColorStop(0.7, '#46538a'); hull.addColorStop(1, '#141a3d');
   mirrorPath(ctx, h.hull); ctx.fillStyle = hull; ctx.fill();
-  ctx.lineWidth = 2.5 * px; ctx.strokeStyle = 'rgba(8,12,36,.9)'; ctx.stroke();
+  ctx.lineWidth = 2.5 * px; ctx.strokeStyle = 'rgba(6,9,28,.95)'; ctx.stroke();
+  // armour plate sitting on top of the hull
+  mirrorPath(ctx, inset(h.hull, 0.62, -0.05));
+  ctx.fillStyle = 'rgba(8,12,38,.5)'; ctx.fill();
+  ctx.lineWidth = 1.5 * px; ctx.strokeStyle = accent; ctx.globalAlpha = 0.55; ctx.stroke(); ctx.globalAlpha = 1;
 
-  // coloured wing trim
-  ctx.strokeStyle = accent; ctx.lineWidth = 5 * px;
-  for (const sgn of [1, -1]) {
-    ctx.beginPath(); h.trim.forEach(([x, y], i) => (i ? ctx.lineTo(sgn * x, y) : ctx.moveTo(sgn * x, y))); ctx.stroke();
-  }
-  // centre stripe
-  if (h.stripe) { ctx.fillStyle = accent; ctx.globalAlpha = 0.85; ctx.fillRect(-0.035, -0.7, 0.07, 1.1); ctx.globalAlpha = 1; }
+  // neon edge lighting along the wings
+  ctx.save(); ctx.strokeStyle = accent; ctx.lineWidth = 4 * px; ctx.shadowColor = accent; ctx.shadowBlur = 8;
+  noses(sgn => { ctx.beginPath(); h.trim.forEach(([x, y], i) => (i ? ctx.lineTo(sgn * x, y) : ctx.moveTo(sgn * x, y))); ctx.stroke(); });
+  ctx.restore();
+  // spine
+  if (h.stripe) { ctx.fillStyle = accent; ctx.globalAlpha = 0.9; ctx.fillRect(-0.03, -0.72, 0.06, 0.78); ctx.globalAlpha = 1; }
+  // panel lines
+  ctx.strokeStyle = 'rgba(6,9,28,.55)'; ctx.lineWidth = 1.5 * px;
+  noses(sgn => { ctx.beginPath(); ctx.moveTo(sgn * 0.12, -0.25); ctx.lineTo(sgn * 0.5, -0.45); ctx.moveTo(sgn * 0.12, -0.5); ctx.lineTo(sgn * 0.42, -0.62); ctx.stroke(); });
+
+  // weapon pods at the wing tips with glowing muzzles and blinking running lights
+  const [wx, wy] = h.trim[h.trim.length - 1];
+  noses(sgn => {
+    ctx.fillStyle = '#10163a'; ctx.beginPath(); ctx.roundRect(sgn * wx - 0.05, wy - 0.15, 0.1, 0.3, 0.045); ctx.fill();
+    ctx.strokeStyle = accent; ctx.lineWidth = 1.5 * px; ctx.stroke();
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, sgn * wx, wy + 0.17, 0.12 + 0.05 * pulse + 0.05 * boost, accent, 'rgba(0,0,0,0)'); ctx.restore();
+    if (Math.sin(t * 8 + sgn * 2 + kind) > 0.3) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(sgn * wx, wy - 0.17, 0.035, 0, 6.283); ctx.fill(); }
+  });
+
   // engine nozzles
-  ctx.fillStyle = '#10163a';
+  ctx.fillStyle = '#0a0e28'; ctx.strokeStyle = 'rgba(160,175,225,.6)'; ctx.lineWidth = 1.5 * px;
   for (const ex of h.engines) for (const sgn of ex === 0 ? [1] : [-1, 1]) {
-    ctx.beginPath(); ctx.roundRect(ex * sgn - 0.07, -0.95, 0.14, 0.16, 0.04); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(ex * sgn - 0.085, -0.97, 0.17, 0.16, 0.05); ctx.fill(); ctx.stroke();
   }
-  // cockpit
+
+  // pulsing energy core
   const [cx, cy, cw, ch] = h.cockpit;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  glow(ctx, 0, cy - ch - 0.3, 0.26 * (1 + 0.18 * pulse + 0.35 * boost), 'rgba(255,255,255,.9)', 'rgba(0,0,0,0)');
+  glow(ctx, 0, cy - ch - 0.3, 0.2 * (1 + 0.25 * pulse), accent, 'rgba(0,0,0,0)');
+  ctx.restore();
+
+  // canopy: dark tinted glass with a glint and a lit rim
   const glass = ctx.createLinearGradient(0, cy - ch, 0, cy + ch);
-  glass.addColorStop(0, '#e6ffff'); glass.addColorStop(0.5, '#5ef0ff'); glass.addColorStop(1, '#1b5f86');
-  ctx.fillStyle = glass; ctx.beginPath(); ctx.ellipse(cx, cy, cw * 2.1, ch * 0.9, 0, 0, 6.283); ctx.fill();
-  ctx.strokeStyle = 'rgba(8,12,36,.8)'; ctx.lineWidth = 2 * px; ctx.stroke();
-  eyes(ctx, cx, cy, Math.max(0.15, cw * 1.1), Math.max(0.13, cw * 0.9), t + kind, worried, px);
+  glass.addColorStop(0, '#9fefff'); glass.addColorStop(0.35, '#2a7fb0'); glass.addColorStop(1, '#0a1740');
+  ctx.fillStyle = glass; ctx.beginPath(); ctx.ellipse(cx, cy, cw * 1.5, ch * 0.78, 0, 0, 6.283); ctx.fill();
+  ctx.strokeStyle = accent; ctx.lineWidth = 2 * px; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.ellipse(cx - cw * 0.5, cy - ch * 0.28, cw * 0.32, ch * 0.2, -0.4, 0, 6.283); ctx.fill();
   ctx.restore();
 }

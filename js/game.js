@@ -270,22 +270,68 @@ function drawGround() {
   ctx.restore();
 }
 
+const chargeFull = () => { const t = G.target; return !!t && G.charge > 0.985 && t.typed >= (t.ans ? t.ans.length : t.word.length) && !t.bad; };
+
 function drawCannon() {
-  const cx = W / 2, cy = cannonY();
-  ctx.save(); ctx.translate(cx, cy);
+  const cx = W / 2, cy = cannonY(), c = clamp(G.charge, 0, 1), full = chargeFull();
+  const acc = full ? '#6bff9e' : '#5ef0ff', pulse = 0.5 + 0.5 * Math.sin(clock * 4), u = S;
+  const poly = pts => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x * u, y * u) : ctx.moveTo(x * u, y * u))); ctx.closePath(); };
+  ctx.save(); ctx.translate(cx, cy); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+
+  // armoured base with neon-lit edges
+  const bg = ctx.createLinearGradient(-70 * u, 0, 70 * u, 0);
+  bg.addColorStop(0, '#0d1233'); bg.addColorStop(0.3, '#39447a'); bg.addColorStop(0.5, '#8a99cc'); bg.addColorStop(0.7, '#39447a'); bg.addColorStop(1, '#0d1233');
+  poly([[-72, 30], [-60, 10], [-38, -4], [38, -4], [60, 10], [72, 30]]); ctx.fillStyle = bg; ctx.fill();
+  ctx.lineWidth = 2.5 * u; ctx.strokeStyle = 'rgba(6,9,28,.95)'; ctx.stroke();
+  poly([[-52, 30], [-44, 14], [-30, 4], [30, 4], [44, 14], [52, 30]]); ctx.fillStyle = 'rgba(8,12,38,.55)'; ctx.fill(); // armour plate
+  ctx.save(); ctx.strokeStyle = acc; ctx.lineWidth = 3.5 * u; ctx.shadowColor = acc; ctx.shadowBlur = 10;
+  for (const sg of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sg * 72 * u, 30 * u); ctx.lineTo(sg * 60 * u, 10 * u); ctx.lineTo(sg * 38 * u, -4 * u); ctx.stroke(); }
+  ctx.restore();
+  for (const sg of [-1, 1]) { // side stabilizer pods with running lights
+    ctx.fillStyle = '#10163a'; rr(sg * 58 * u - 6 * u, 12 * u, 12 * u, 16 * u, 4 * u); ctx.fill();
+    ctx.strokeStyle = acc; ctx.lineWidth = 1.5 * u; ctx.stroke();
+    ctx.fillStyle = Math.sin(clock * 6 + sg) > 0 ? '#ffffff' : acc; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(sg * 58 * u, 17 * u, 2.2 * u, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1;
+  }
+
+  // dome: dark glass over a glowing energy core
+  const dg = ctx.createRadialGradient(0, -8 * u, 2, 0, 0, 34 * u);
+  dg.addColorStop(0, '#46569a'); dg.addColorStop(0.6, '#1a2350'); dg.addColorStop(1, '#0a0f2b');
+  ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(0, 0, 32 * u, Math.PI, 0); ctx.closePath(); ctx.fill();
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const cr = (14 + 8 * c + 2 * pulse) * u, core = ctx.createRadialGradient(0, -6 * u, 0, 0, -6 * u, cr);
+  core.addColorStop(0, 'rgba(255,255,255,.9)'); core.addColorStop(0.35, acc); core.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = 0.5 + 0.5 * c; ctx.fillStyle = core; ctx.beginPath(); ctx.arc(0, -6 * u, cr, 0, 6.283); ctx.fill();
+  ctx.restore();
+  ctx.save(); ctx.strokeStyle = acc; ctx.lineWidth = 3 * u; ctx.shadowColor = acc; ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.arc(0, 0, 32 * u, Math.PI, 0); ctx.stroke(); ctx.restore();
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2 * u; ctx.beginPath(); ctx.arc(0, 0, 24 * u, Math.PI * 1.1, Math.PI * 1.4); ctx.stroke(); // glass glint
+
+  // barrel: rotates to the target, slides back when it fires, energy rings light up as it charges
   ctx.save(); ctx.rotate(G.aim);
-  const bg = ctx.createLinearGradient(-10 * S, 0, 10 * S, 0);
-  bg.addColorStop(0, '#2b8aa0'); bg.addColorStop(0.5, '#8ff6ff'); bg.addColorStop(1, '#2b8aa0');
-  ctx.fillStyle = bg; ctx.shadowColor = '#5ef0ff'; ctx.shadowBlur = 14;
-  rr(-9 * S, (-52 + G.recoil * 8) * S, 18 * S, 52 * S, 5 * S); ctx.fill();
-  ctx.fillStyle = '#ff5ea8'; ctx.shadowBlur = 0;
-  rr(-11 * S, (-56 + G.recoil * 8) * S, 22 * S, 8 * S, 3 * S); ctx.fill();
+  const rec = G.recoil * 8 * u;
+  ctx.fillStyle = '#10163a'; rr(-14 * u, -16 * u + rec * 0.4, 28 * u, 18 * u, 5 * u); ctx.fill(); // breech
+  ctx.strokeStyle = 'rgba(160,175,225,.6)'; ctx.lineWidth = 1.5 * u; ctx.stroke();
+  const bb = ctx.createLinearGradient(-9 * u, 0, 9 * u, 0);
+  bb.addColorStop(0, '#1a2250'); bb.addColorStop(0.45, '#aab8e8'); bb.addColorStop(0.6, '#5a68a0'); bb.addColorStop(1, '#141a40');
+  ctx.fillStyle = bb; rr(-8 * u, -47 * u + rec, 16 * u, 36 * u, 3 * u); ctx.fill();
+  ctx.strokeStyle = 'rgba(6,9,28,.9)'; ctx.lineWidth = 2 * u; ctx.stroke();
+  for (let i = 0; i < 3; i++) { // charge rings
+    const on = c > (i + 0.5) / 3, y = (-20 - i * 10) * u + rec;
+    ctx.save();
+    if (on) { ctx.shadowColor = acc; ctx.shadowBlur = 10; }
+    ctx.fillStyle = on ? acc : '#0a0e28'; rr(-10 * u, y, 20 * u, 3.5 * u, 1.5 * u); ctx.fill();
+    ctx.restore();
+  }
   ctx.restore();
-  const dg = ctx.createRadialGradient(0, -8 * S, 4, 0, 0, 38 * S);
-  dg.addColorStop(0, '#9ffaff'); dg.addColorStop(1, '#1d6a86');
-  ctx.fillStyle = dg; ctx.shadowColor = '#5ef0ff'; ctx.shadowBlur = 18;
-  ctx.beginPath(); ctx.arc(0, 0, 34 * S, Math.PI, 0); ctx.fill();
   ctx.restore();
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(G.aim); ctx.translate(0, G.recoil * 8 * u); // muzzle brake drawn here so it follows recoil
+  const mg = ctx.createLinearGradient(-15 * u, 0, 15 * u, 0);
+  mg.addColorStop(0, '#1a2250'); mg.addColorStop(0.5, '#9aa9dd'); mg.addColorStop(1, '#1a2250');
+  poly([[-9, -44], [-15, -57], [15, -57], [9, -44]]); ctx.fillStyle = mg; ctx.fill();
+  ctx.strokeStyle = 'rgba(6,9,28,.9)'; ctx.lineWidth = 2 * u; ctx.stroke();
+  ctx.save(); ctx.fillStyle = '#ff5ea8'; ctx.shadowColor = '#ff5ea8'; ctx.shadowBlur = 8; rr(-14 * u, -59 * u, 28 * u, 4 * u, 2 * u); ctx.fill(); ctx.restore();
+  ctx.restore();
+
   drawCharge(cx, cy);
   if (G.recoil > 0.5) { // muzzle flash
     const t = cannonTip(), r = 34 * S * G.recoil;
@@ -332,7 +378,7 @@ function drawEnemy0(e) {
   const grow = 0.8 + 0.35 * (e.prog || 0); // looms larger as it closes in
   ctx.save(); ctx.translate(e.x, e.y); ctx.scale(sc * grow, sc * grow); ctx.rotate(e.ship === SHIP_KINDS - 1 ? 0 : e.dir || 0); // the saucer stays level
   ctx.shadowColor = e.color; ctx.shadowBlur = 22;
-  drawShip(ctx, e.ship, sz * 0.78, e.color, e.age, e.typed > 0 || e.bad ? 1 : 0); // flies nose-first straight at the cannon; looks worried once you start typing it
+  drawShip(ctx, e.ship, sz * 0.78, e.color, e.age, e.typed > 0 || e.bad ? 1 : 0); // flies nose-first straight at the cannon; engines surge once you start typing it
   ctx.restore();
   if (isT) {
     ctx.save(); ctx.strokeStyle = '#5ef0ff'; ctx.lineWidth = 4; ctx.setLineDash([9, 9]); ctx.lineDashOffset = -clock * 50;
