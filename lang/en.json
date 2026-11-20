@@ -13,7 +13,7 @@
   "confirmDel": "Delete {n} and all saved scores?",
   "guestNote": "Guest: nothing is saved.",
   "gridTitle": "Times tables progress",
-  "gridHelp": "Based on your last 10 tries of each problem.",
+  "gridHelp": "Based on your last 20 tries of each problem. 20 right in a row = fully green.",
   "legendGood": "Knows it",
   "legendBad": "Needs practice",
   "legendNone": "Not played",

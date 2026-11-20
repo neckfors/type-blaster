@@ -1,20 +1,15 @@
 // Game logic and canvas rendering. UI text comes in through ev.t() so it stays translatable.
 import { sfx } from './audio.js';
 import { FX } from './fx.js';
+import { drawShip, SHIP_KINDS } from './ships.js';
 import * as ms from './mathstats.js';
 import { pickQuestion, answerOf, SYM, defaultCfg } from './mathset.js';
 
 const params = new URLSearchParams(location.search);
 export const MINUTE = Number(params.get('minute')) || 60; // seconds per round (?minute=10 for testing)
 export const MAX_LIVES = 5;
-// Enemy ships: renders of Kenney's CC0 Space Kit (see assets/ships/CREDITS.md). Sprite sheet: one row per ship, SHIP_FRAMES banking frames per row.
-const SHIPS = 8, SHIP_FRAMES = 13, SHIP_PX = 144;
-const shipImg = new Image(); let shipsReady = false;
-shipImg.onload = () => { shipsReady = true; }; shipImg.src = new URL('../assets/ships/ships.webp', import.meta.url).href;
-const FALLBACK_EMOJI = ['👾', '🛸', '👹', '👻', '🤖', '🐙', '👽', '🦑']; // fallback while the sheet loads
 const COLORS = ['#ff5ea8', '#5ef0ff', '#ffd35e', '#9d7bff', '#6bff9e', '#ff8a5e'];
 const FONT = '"Trebuchet MS","Segoe UI",system-ui,sans-serif';
-const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
 
 const fx = new FX();
 let canvas, ctx, words, ev = {};
@@ -111,7 +106,7 @@ function spawn() {
   }
   ctx.font = labelFont();
   const tw = ctx.measureText(label || word).width, w = tw + 28 * S;
-  const amp = 10 * S, band = Math.min(W, 420 * S + 40), mid = W / 2; // keep enemies near the middle
+  const amp = 0, band = Math.min(W, 420 * S + 40), mid = W / 2; // keep enemies near the middle
   const lo = Math.max(w / 2 + amp + 10, mid - band / 2 + w / 2), hi = Math.min(W - w / 2 - amp - 10, mid + band / 2 - w / 2);
   let bx = W / 2, bd = -1;
   for (let i = 0; i < 8; i++) { // pick the spot furthest from the enemies near the top
@@ -120,7 +115,7 @@ function spawn() {
     for (const o of G.enemies) if (o.y < H * 0.35) d = Math.min(d, Math.abs(o.baseX - x));
     if (d > bd) { bd = d; bx = x; }
   }
-  G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: H * 0.09, age: 0, phase: Math.random() * 6.28, amp, emoji: rand(FALLBACK_EMOJI), ship: Math.floor(Math.random() * SHIPS), color: rand(COLORS), shake: 0, bad: false, ...extra });
+  G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: H * 0.09, age: 0, phase: Math.random() * 6.28, amp, ship: Math.floor(Math.random() * SHIP_KINDS), color: rand(COLORS), shake: 0, bad: false, ...extra });
   G.spawned++; G.spawnT = spawnGap() * (0.85 + Math.random() * 0.3) * (G.spawned <= 4 ? 0.45 : 1.15); // quick start, then a calmer stream
 }
 
@@ -331,15 +326,8 @@ function drawEnemy0(e) {
   const sz = 54 * S * (G.target === e ? 1.15 : 1), sc = easeOutBack(Math.min(1, e.age / 0.35));
   const isT = G.target === e, danger = e.y > lineY() - 150 * S;
   ctx.save(); ctx.translate(e.x, e.y); ctx.scale(sc, sc);
-  ctx.shadowColor = e.color; ctx.shadowBlur = 24;
-  if (shipsReady) { // the ship banks left and right through pre-rendered 3D frames
-    const f = clamp(Math.round((Math.sin(e.age * 1.6 + e.phase) * 0.5 + 0.5) * (SHIP_FRAMES - 1)), 0, SHIP_FRAMES - 1), d = sz * 1.9;
-    ctx.drawImage(shipImg, f * SHIP_PX, e.ship * SHIP_PX, SHIP_PX, SHIP_PX, -d / 2, -d / 2, d, d);
-  } else {
-    ctx.rotate(Math.sin(e.age * 2 + e.phase) * 0.12);
-    ctx.font = `${sz}px ${EMOJI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(e.emoji, 0, 0);
-  }
+  ctx.shadowColor = e.color; ctx.shadowBlur = 22;
+  drawShip(ctx, e.ship, sz * 0.78, e.color, e.age); // flies nose-first straight at the player
   ctx.restore();
   if (isT) {
     ctx.save(); ctx.strokeStyle = '#5ef0ff'; ctx.lineWidth = 4; ctx.setLineDash([9, 9]); ctx.lineDashOffset = -clock * 50;

@@ -142,7 +142,7 @@ function showGrid() {
   let h = '<tr><th></th>' + MUL_NUMS.map(n => `<th>${n}</th>`).join('') + '</tr>';
   for (const a of MUL_NUMS) {
     h += `<tr><th>${a}</th>`;
-    for (const b of MUL_NUMS) h += `<td style="background:${ms.color(a, b)}">${a * b}</td>`;
+    for (const b of MUL_NUMS) h += `<td style="background:${ms.color(a, b)}" title="${a} × ${b}: ${ms.tries(a, b)}/${ms.WINDOW} tries remembered">${a * b}</td>`;
     h += '</tr>';
   }
   $('gridTable').innerHTML = h; show('grid');
