@@ -26,8 +26,9 @@ export function badness(a, b) {
 
 export const mastered = () => FACTS.filter(([a, b]) => { const h = hist[key(a, b)]; return h && h.length >= 5 && h.every(x => x); }).length;
 
-// Facts you struggle with come up more often; mastered ones less often.
-export function weight(a, b) { const r = badness(a, b); return r == null ? 2 : 0.6 + 6 * r; }
+// Facts you struggle with come up more often; mastered ones less often. The square root lifts facts you only miss
+// sometimes (1 miss in 10 -> 2.2x, 2 in 10 -> 2.8x, always wrong -> 5.6x, versus 0.6x when perfect and 2x when unseen).
+export function weight(a, b) { const r = badness(a, b); return r == null ? 2 : 0.6 + 5 * Math.sqrt(r); }
 
 export function color(a, b) {
   const r = badness(a, b);
