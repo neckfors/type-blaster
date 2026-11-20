@@ -7,7 +7,11 @@ import { pickQuestion, answerOf, SYM, defaultCfg } from './mathset.js';
 const params = new URLSearchParams(location.search);
 export const MINUTE = Number(params.get('minute')) || 60; // seconds per round (?minute=10 for testing)
 export const MAX_LIVES = 5;
-const MONSTERS = ['👾', '🛸', '👹', '👻', '🤖', '🐙', '👽', '🦑'];
+// Enemy ships: renders of Kenney's CC0 Space Kit (see assets/ships/CREDITS.md). Sprite sheet: one row per ship, SHIP_FRAMES banking frames per row.
+const SHIPS = 8, SHIP_FRAMES = 13, SHIP_PX = 144;
+const shipImg = new Image(); let shipsReady = false;
+shipImg.onload = () => { shipsReady = true; }; shipImg.src = new URL('../assets/ships/ships.webp', import.meta.url).href;
+const FALLBACK_EMOJI = ['👾', '🛸', '👹', '👻', '🤖', '🐙', '👽', '🦑']; // fallback while the sheet loads
 const COLORS = ['#ff5ea8', '#5ef0ff', '#ffd35e', '#9d7bff', '#6bff9e', '#ff8a5e'];
 const FONT = '"Trebuchet MS","Segoe UI",system-ui,sans-serif';
 const EMOJI_FONT = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
@@ -20,7 +24,7 @@ const stat = () => ({ keys: 0, ok: 0, words: 0, best: 0, cw: 0 });
 const fresh = () => ({
   mode: opts.mode, running: false, paused: false, lives: MAX_LIVES, score: 0, combo: 0, bestCombo: 0,
   time: 0, minute: 1, minTime: 0, enemies: [], target: null, spawnT: 0.4, spawned: 0, grace: 0, cps: 1.6, lastKill: 0, clockOn: false, typeTime: 0,
-  aim: 0, recoil: 0, recent: [], m: stat(), t: stat(),
+  aim: 0, recoil: 0, charge: 0, recent: [], m: stat(), t: stat(),
 });
 let G = fresh();
 
@@ -107,16 +111,16 @@ function spawn() {
   }
   ctx.font = labelFont();
   const tw = ctx.measureText(label || word).width, w = tw + 28 * S;
-  const amp = 10 * S, band = Math.min(W, 420 * S + 40), mid = W / 2; // keep monsters near the middle
+  const amp = 10 * S, band = Math.min(W, 420 * S + 40), mid = W / 2; // keep enemies near the middle
   const lo = Math.max(w / 2 + amp + 10, mid - band / 2 + w / 2), hi = Math.min(W - w / 2 - amp - 10, mid + band / 2 - w / 2);
   let bx = W / 2, bd = -1;
-  for (let i = 0; i < 8; i++) { // pick the spot furthest from the monsters near the top
+  for (let i = 0; i < 8; i++) { // pick the spot furthest from the enemies near the top
     const x = lo + Math.random() * Math.max(1, hi - lo);
     let d = 1e9;
     for (const o of G.enemies) if (o.y < H * 0.35) d = Math.min(d, Math.abs(o.baseX - x));
     if (d > bd) { bd = d; bx = x; }
   }
-  G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: H * 0.09, age: 0, phase: Math.random() * 6.28, amp, emoji: rand(MONSTERS), color: rand(COLORS), shake: 0, bad: false, ...extra });
+  G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: H * 0.09, age: 0, phase: Math.random() * 6.28, amp, emoji: rand(FALLBACK_EMOJI), ship: Math.floor(Math.random() * SHIPS), color: rand(COLORS), shake: 0, bad: false, ...extra });
   G.spawned++; G.spawnT = spawnGap() * (0.85 + Math.random() * 0.3) * (G.spawned <= 4 ? 0.45 : 1.15); // quick start, then a calmer stream
 }
 
@@ -228,9 +232,11 @@ function update(dt) {
   const cx = W / 2, cy = cannonY();
   const want = G.target ? clamp(Math.atan2(G.target.x - cx, cy - G.target.y), -1.2, 1.2) : 0;
   G.aim += (want - G.aim) * Math.min(1, dt * 14);
+  const t = G.target, goal = t && G.running ? t.typed / (t.ans ? t.ans.length : t.word.length) : 0; // weapon charge = share of the word typed, so short words fill it faster
+  G.charge += (goal - G.charge) * Math.min(1, dt * (goal > G.charge ? 18 : 30));
   for (const e of G.enemies) e.shake = Math.max(0, e.shake - dt);
   if (!G.running || G.paused) return;
-  if (!G.target && G.enemies.length) G.target = G.enemies.reduce((a, b) => (b.y > a.y ? b : a)); // autolock the closest (lowest) monster; the others can't be typed until it is gone
+  if (!G.target && G.enemies.length) G.target = G.enemies.reduce((a, b) => (b.y > a.y ? b : a)); // autolock the closest (lowest) enemy; the others can't be typed until it is gone
   if (G.grace > 0) { G.grace -= dt; return; }
   G.time += dt;
   if (G.clockOn) { G.minTime += dt; G.typeTime += dt; }
@@ -281,6 +287,7 @@ function drawCannon() {
   ctx.fillStyle = dg; ctx.shadowColor = '#5ef0ff'; ctx.shadowBlur = 18;
   ctx.beginPath(); ctx.arc(0, 0, 34 * S, Math.PI, 0); ctx.fill();
   ctx.restore();
+  drawCharge(cx, cy);
   if (G.recoil > 0.5) { // muzzle flash
     const t = cannonTip(), r = 34 * S * G.recoil;
     const rg = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r);
@@ -289,8 +296,25 @@ function drawCannon() {
   }
 }
 
+function drawCharge(cx, cy) { // gauge ring around the dome plus an energy orb at the muzzle that grows as the word is typed
+  const c = clamp(G.charge, 0, 1), full = c > 0.985 && G.target && G.target.typed >= (G.target.ans ? G.target.ans.length : G.target.word.length) && !G.target.bad;
+  const col = full ? '#6bff9e' : '#5ef0ff', pulse = full ? 0.5 + 0.5 * Math.sin(clock * 16) : 0;
+  ctx.save(); ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(94,240,255,.18)'; ctx.lineWidth = 5 * S;
+  ctx.beginPath(); ctx.arc(cx, cy, 46 * S, Math.PI, 0); ctx.stroke();
+  if (c > 0.01) {
+    ctx.strokeStyle = col; ctx.lineWidth = 5 * S; ctx.shadowColor = col; ctx.shadowBlur = 14 + 10 * pulse;
+    ctx.beginPath(); ctx.arc(cx, cy, 46 * S, Math.PI, Math.PI + Math.PI * c); ctx.stroke();
+    const t = cannonTip(), r = (3 + 15 * c + 4 * pulse) * S;
+    const g = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r * 1.8);
+    g.addColorStop(0, 'rgba(255,255,255,.95)'); g.addColorStop(0.35, full ? 'rgba(107,255,158,.8)' : 'rgba(94,240,255,.7)'); g.addColorStop(1, 'rgba(94,240,255,0)');
+    ctx.shadowBlur = 0; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(t.x, t.y, r * 1.8, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawEnemy(e) {
-  ctx.save(); ctx.globalAlpha = G.target && G.target !== e ? 0.5 : 1; // dim everything except the locked monster
+  ctx.save(); ctx.globalAlpha = G.target && G.target !== e ? 0.5 : 1; // dim everything except the locked enemy
   drawEnemy0(e);
   ctx.restore();
 }
@@ -306,10 +330,16 @@ function drawAimLine() {
 function drawEnemy0(e) {
   const sz = 54 * S * (G.target === e ? 1.15 : 1), sc = easeOutBack(Math.min(1, e.age / 0.35));
   const isT = G.target === e, danger = e.y > lineY() - 150 * S;
-  ctx.save(); ctx.translate(e.x, e.y); ctx.scale(sc, sc); ctx.rotate(Math.sin(e.age * 2 + e.phase) * 0.12);
+  ctx.save(); ctx.translate(e.x, e.y); ctx.scale(sc, sc);
   ctx.shadowColor = e.color; ctx.shadowBlur = 24;
-  ctx.font = `${sz}px ${EMOJI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(e.emoji, 0, 0);
+  if (shipsReady) { // the ship banks left and right through pre-rendered 3D frames
+    const f = clamp(Math.round((Math.sin(e.age * 1.6 + e.phase) * 0.5 + 0.5) * (SHIP_FRAMES - 1)), 0, SHIP_FRAMES - 1), d = sz * 1.9;
+    ctx.drawImage(shipImg, f * SHIP_PX, e.ship * SHIP_PX, SHIP_PX, SHIP_PX, -d / 2, -d / 2, d, d);
+  } else {
+    ctx.rotate(Math.sin(e.age * 2 + e.phase) * 0.12);
+    ctx.font = `${sz}px ${EMOJI_FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(e.emoji, 0, 0);
+  }
   ctx.restore();
   if (isT) {
     ctx.save(); ctx.strokeStyle = '#5ef0ff'; ctx.lineWidth = 4; ctx.setLineDash([9, 9]); ctx.lineDashOffset = -clock * 50;
