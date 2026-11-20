@@ -1,6 +1,6 @@
 # Type Blaster
 
-A typing game for kids (made for a 12 year old). Monsters fall from the sky, each carrying a word. Type the word, then press SPACE to shoot it down before it reaches the line. It is not installable as an app; play it in the browser.
+A typing game for kids (made for a 12 year old). Space ships fall from the sky, each carrying a word. Type the word, then press SPACE to shoot it down before it reaches the line. It is not installable as an app; play it in the browser.
 
 The interface is in English, the falling words are Swedish.
 
@@ -39,6 +39,9 @@ Interface text and word lists are separate from the code.
 
 ## Files
 - `js/game.js` game logic and drawing, `js/players.js` local players and per-player storage, `js/mathset.js` + `css/mathset.css` question types and the settings card (same copy in Math Clicker), `js/mathstats.js` multiplication history and grid colours, `js/fx.js` particles and starfield, `js/audio.js` synthesised sounds (no audio files), `js/main.js` menus, HUD, input, `js/i18n.js` languages.
+
+## Credits
+The enemy ships are renders of 3D models from the [Space Kit by Kenney](https://kenney.nl/assets/space-kit), released under CC0 (free for commercial use; credit appreciated). Details in `assets/ships/CREDITS.md`.
 
 ## Support
 If you like the app, you can support the author on [PayPal](https://paypal.me/neckfors). Thank you!
