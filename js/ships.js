@@ -43,8 +43,26 @@ const mirrorPath = (ctx, pts) => {
   ctx.closePath();
 };
 
+// Cartoon eyes that stare straight ahead (at the cannon): angry brows normally, worried brows once the player is typing at it.
+function eyes(ctx, cx, cy, gap, er, t, worried, px) {
+  const blink = Math.sin(t * 1.3) > 0.985 ? 0.15 : 1;
+  for (const sgn of [-1, 1]) {
+    const x = cx + sgn * gap;
+    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(x, cy, er, er * blink, 0, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = 'rgba(8,12,36,.9)'; ctx.lineWidth = 1.6 * px; ctx.stroke();
+    if (blink > 0.5) {
+      ctx.fillStyle = '#0b1026'; ctx.beginPath(); ctx.arc(x, cy + er * (worried ? 0.1 : 0.38), er * (worried ? 0.42 : 0.5), 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x - er * 0.12, cy + er * (worried ? 0 : 0.26), er * 0.15, 0, 6.283); ctx.fill();
+    }
+    // brows slope down towards the middle when angry, up when worried
+    const inY = cy - er * (worried ? 1.55 : 1.0), outY = cy - er * (worried ? 1.05 : 1.55);
+    ctx.strokeStyle = '#0b1026'; ctx.lineWidth = 3 * px; ctx.beginPath();
+    ctx.moveTo(x + sgn * er * 1.15, outY); ctx.lineTo(x - sgn * er * 0.9, inY); ctx.stroke();
+  }
+}
+
 // Draw one ship centred on the current origin; r is half its size in pixels, accent its glow colour, t seconds for animation.
-export function drawShip(ctx, kind, r, accent, t) {
+export function drawShip(ctx, kind, r, accent, t, worried = 0) {
   const h = HULLS[kind % HULLS.length];
   ctx.save(); ctx.scale(r, r); // canvas y points down, so the nose (+y) points down the screen
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
@@ -76,6 +94,7 @@ export function drawShip(ctx, kind, r, accent, t) {
     const dome = ctx.createRadialGradient(-0.1, -0.1, 0.02, 0, 0, 0.42);
     dome.addColorStop(0, '#e6ffff'); dome.addColorStop(0.45, '#5ef0ff'); dome.addColorStop(1, '#1d6a86');
     ctx.fillStyle = dome; ctx.beginPath(); ctx.ellipse(0, 0, 0.42, 0.32, 0, 0, 6.283); ctx.fill();
+    eyes(ctx, 0, 0.02, 0.17, 0.12, t, worried, px);
     ctx.restore(); return;
   }
 
@@ -101,7 +120,8 @@ export function drawShip(ctx, kind, r, accent, t) {
   const [cx, cy, cw, ch] = h.cockpit;
   const glass = ctx.createLinearGradient(0, cy - ch, 0, cy + ch);
   glass.addColorStop(0, '#e6ffff'); glass.addColorStop(0.5, '#5ef0ff'); glass.addColorStop(1, '#1b5f86');
-  ctx.fillStyle = glass; ctx.beginPath(); ctx.ellipse(cx, cy, cw, ch * 0.65, 0, 0, 6.283); ctx.fill();
+  ctx.fillStyle = glass; ctx.beginPath(); ctx.ellipse(cx, cy, cw * 2.1, ch * 0.9, 0, 0, 6.283); ctx.fill();
   ctx.strokeStyle = 'rgba(8,12,36,.8)'; ctx.lineWidth = 2 * px; ctx.stroke();
+  eyes(ctx, cx, cy, Math.max(0.15, cw * 1.1), Math.max(0.13, cw * 0.9), t + kind, worried, px);
   ctx.restore();
 }

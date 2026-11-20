@@ -115,7 +115,7 @@ function spawn() {
     for (const o of G.enemies) if (o.y < H * 0.35) d = Math.min(d, Math.abs(o.baseX - x));
     if (d > bd) { bd = d; bx = x; }
   }
-  G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: H * 0.09, age: 0, phase: Math.random() * 6.28, amp, ship: Math.floor(Math.random() * SHIP_KINDS), color: rand(COLORS), shake: 0, bad: false, ...extra });
+  G.enemies.push({ word, typed: 0, tw, w, x: bx, baseX: bx, y: H * 0.09, y0: H * 0.09, age: 0, phase: Math.random() * 6.28, amp, ship: Math.floor(Math.random() * SHIP_KINDS), color: rand(COLORS), shake: 0, bad: false, ...extra });
   G.spawned++; G.spawnT = spawnGap() * (0.85 + Math.random() * 0.3) * (G.spawned <= 4 ? 0.45 : 1.15); // quick start, then a calmer stream
 }
 
@@ -236,7 +236,11 @@ function update(dt) {
   G.time += dt;
   if (G.clockOn) { G.minTime += dt; G.typeTime += dt; }
   const v = (lineY() + 40 * S) * 0.048 * Math.pow(1.1, G.minute - 1) * opts.speed; // ~21s top to bottom at start
-  for (const e of G.enemies) { e.age += dt; e.y += v * dt; e.x = e.baseX + Math.sin(e.age * 1.6 + e.phase) * e.amp; }
+  for (const e of G.enemies) { // every ship flies a dead-straight line from where it appeared to the cannon, nose first
+    e.age += dt; e.y += v * dt;
+    const cx = W / 2, p = (e.y - e.y0) / Math.max(1, cy - e.y0);
+    e.x = e.baseX + (cx - e.baseX) * p; e.dir = Math.atan2(e.baseX - cx, cy - e.y0); e.prog = clamp((e.y - e.y0) / Math.max(1, lineY() - e.y0), 0, 1);
+  }
   for (const e of [...G.enemies]) if (G.running && e.y >= lineY()) hit(e);
   if (!G.running) return;
   G.spawnT -= dt;
@@ -325,9 +329,10 @@ function drawAimLine() {
 function drawEnemy0(e) {
   const sz = 54 * S * (G.target === e ? 1.15 : 1), sc = easeOutBack(Math.min(1, e.age / 0.35));
   const isT = G.target === e, danger = e.y > lineY() - 150 * S;
-  ctx.save(); ctx.translate(e.x, e.y); ctx.scale(sc, sc);
+  const grow = 0.8 + 0.35 * (e.prog || 0); // looms larger as it closes in
+  ctx.save(); ctx.translate(e.x, e.y); ctx.scale(sc * grow, sc * grow); ctx.rotate(e.ship === SHIP_KINDS - 1 ? 0 : e.dir || 0); // the saucer stays level
   ctx.shadowColor = e.color; ctx.shadowBlur = 22;
-  drawShip(ctx, e.ship, sz * 0.78, e.color, e.age); // flies nose-first straight at the player
+  drawShip(ctx, e.ship, sz * 0.78, e.color, e.age, e.typed > 0 || e.bad ? 1 : 0); // flies nose-first straight at the cannon; looks worried once you start typing it
   ctx.restore();
   if (isT) {
     ctx.save(); ctx.strokeStyle = '#5ef0ff'; ctx.lineWidth = 4; ctx.setLineDash([9, 9]); ctx.lineDashOffset = -clock * 50;
